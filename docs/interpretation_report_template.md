@@ -1,6 +1,6 @@
 # Engineer Deep-Interpretation Report (paid add-on template)
 
-> Billing: `engineer_review_per_min` (pricing.yaml, default USD 0.50/min) × minutes logged, or a
+> Billing: `engineer_review_per_min` (pricing.yaml, default USD 0.50/min) × minutes logged, or a 
 > fixed per-report price agreed in the order. Delivered as Markdown + the reproducible notebook.
 
 | Field | Value |
