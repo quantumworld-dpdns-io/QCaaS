@@ -1,7 +1,7 @@
 # private planning material
 .ignore/
 
-# python
+# python 
 __pycache__/
 *.py[cod]
 .venv/
