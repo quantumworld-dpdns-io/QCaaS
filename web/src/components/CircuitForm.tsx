@@ -67,6 +67,30 @@ export const DEFAULT_FORM_VALUES: CircuitFormValues = {
   targetMetric: "",
 };
 
+/**
+ * Heuristic check that the pasted source matches the selected circuit format, so an obvious
+ * mismatch is caught in the browser instead of coming back as a server 422. Returns the format
+ * the source *looks* like (to offer a one-click switch), or null when it looks consistent.
+ * Only inspects the OpenQASM formats; json/qmod are validated separately.
+ */
+export function detectCircuitFormatMismatch(format: AcceptedCircuitFormat, source: string): AcceptedCircuitFormat | null {
+  if (format !== "openqasm2" && format !== "openqasm3") return null;
+  const src = source.trim();
+  if (!src) return null;
+  // An explicit version header is the strongest signal.
+  const version = src.match(/\bOPENQASM\s+(\d)/i);
+  if (version) {
+    const declared = version[1] === "3" ? "openqasm3" : version[1] === "2" ? "openqasm2" : null;
+    if (declared && declared !== format) return declared;
+  }
+  // Standard-library include differs by version: qelib1.inc (v2) vs stdgates.inc (v3).
+  const hasQelib = /include\s+["']qelib1\.inc["']/i.test(src);
+  const hasStdgates = /include\s+["']stdgates\.inc["']/i.test(src);
+  if (format === "openqasm3" && hasQelib && !hasStdgates) return "openqasm2";
+  if (format === "openqasm2" && hasStdgates && !hasQelib) return "openqasm3";
+  return null;
+}
+
 function optInt(s: string): number | undefined {
   const n = Number.parseInt(s, 10);
   return Number.isFinite(n) && n > 0 ? n : undefined;
@@ -153,6 +177,7 @@ export function CircuitForm({
   const fileRef = useRef<HTMLInputElement>(null);
   const [advanced, setAdvanced] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  const formatMismatch = detectCircuitFormatMismatch(values.circuitFormat, values.circuitSource);
 
   const set = <K extends keyof CircuitFormValues>(k: K, val: CircuitFormValues[K]) => onChange({ ...values, [k]: val });
 
@@ -236,6 +261,23 @@ export function CircuitForm({
           />
         </Field>
         {fileError && <p className="mt-1 text-xs text-red-600">{fileError}</p>}
+        {formatMismatch && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <span>
+              {t("form.formatMismatch", {
+                detected: t(`format.${formatMismatch}` as MessageKey),
+                selected: t(`format.${values.circuitFormat}` as MessageKey),
+              })}
+            </span>
+            <button
+              type="button"
+              className="rounded border border-amber-400 bg-white px-2 py-0.5 font-medium text-amber-800 hover:bg-amber-100"
+              onClick={() => set("circuitFormat", formatMismatch)}
+            >
+              {t("form.switchFormat", { fmt: t(`format.${formatMismatch}` as MessageKey) })}
+            </button>
+          </div>
+        )}
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label={t("form.shots")} htmlFor={`${id}-shots`}>

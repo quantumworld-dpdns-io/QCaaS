@@ -139,6 +139,8 @@ export const en = {
   "form.submitQuote": "Get quote",
   "form.submitOptimize": "Optimise",
   "form.errCircuitRequired": "Please provide a circuit.",
+  "form.formatMismatch": "This looks like {detected}, but the selected format is {selected}.",
+  "form.switchFormat": "Switch to {fmt}",
   "form.errInvalidJson": "Circuit payload must be a valid JSON object for the json format.",
   "form.errFileRead": "Could not read the file.",
 
@@ -611,6 +613,8 @@ export const zhTW: Dictionary = {
   "form.submitQuote": "取得報價",
   "form.submitOptimize": "開始優化",
   "form.errCircuitRequired": "請提供電路內容。",
+  "form.formatMismatch": "這看起來是 {detected}，但目前選擇的格式是 {selected}。",
+  "form.switchFormat": "切換為 {fmt}",
   "form.errInvalidJson": "json 格式的電路內容必須是有效的 JSON 物件。",
   "form.errFileRead": "無法讀取檔案。",
 
