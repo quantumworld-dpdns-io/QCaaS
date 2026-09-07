@@ -9,6 +9,7 @@ import type {
   QuoteRequest,
   QuoteResponse,
 } from "./types";
+import { clearSession, getAccountsUrl, getSession } from "@/lib/auth/store";
 
 export const API_KEY_STORAGE = "qcaas.apiKey";
 export const PAYLOAD_KEY_STORAGE = "qcaas.payloadKey";
@@ -89,15 +90,39 @@ function parseRateLimit(headers: Headers): RateLimit {
   };
 }
 
-function buildHeaders(hasBody: boolean): Headers {
+/**
+ * How /v2/* calls are authenticated:
+ * - "direct":  straight to NEXT_PUBLIC_API_BASE_URL with the pasted X-API-Key (Settings page, machine users).
+ * - "session": through `${NEXT_PUBLIC_ACCOUNTS_URL}/proxy/v2/*` with the login bearer token; the accounts
+ *              service injects the user's API key. Chosen whenever the user is logged in and has a key.
+ */
+export type ClientMode = "direct" | "session";
+
+export function getClientMode(): ClientMode {
+  const session = getSession();
+  return session && session.has_api_key ? "session" : "direct";
+}
+
+function isProxied(path: string): boolean {
+  return path === "/v2" || path.startsWith("/v2/");
+}
+
+/** Resolve the URL and headers for a request in the current mode. Exported for tests. */
+export function resolveRequest(path: string, hasBody: boolean): { url: string; headers: Headers; mode: ClientMode } {
   const h = new Headers();
   h.set("Accept", "application/json");
   if (hasBody) h.set("Content-Type", "application/json");
-  const apiKey = getApiKey();
-  if (apiKey) h.set("X-API-Key", apiKey);
   const payloadKey = getPayloadKey();
   if (payloadKey) h.set("X-Payload-Key", payloadKey);
-  return h;
+
+  const session = getSession();
+  if (session && session.has_api_key && isProxied(path)) {
+    h.set("Authorization", `Bearer ${session.token}`);
+    return { url: `${getAccountsUrl()}/proxy${path}`, headers: h, mode: "session" };
+  }
+  const apiKey = getApiKey();
+  if (apiKey) h.set("X-API-Key", apiKey);
+  return { url: `${getBaseUrl()}${path}`, headers: h, mode: "direct" };
 }
 
 async function toApiError(res: Response): Promise<ApiError> {
@@ -134,11 +159,12 @@ export async function request<T>(
 ): Promise<ApiResult<T>> {
   const method = init.method ?? "GET";
   const hasBody = init.body !== undefined;
+  const { url, headers, mode } = resolveRequest(path, hasBody);
   let res: Response;
   try {
-    res = await fetch(`${getBaseUrl()}${path}`, {
+    res = await fetch(url, {
       method,
-      headers: buildHeaders(hasBody),
+      headers,
       body: hasBody ? JSON.stringify(init.body) : undefined,
       signal: init.signal,
     });
@@ -146,7 +172,11 @@ export async function request<T>(
     const msg = e instanceof Error ? e.message : String(e);
     throw new ApiError(0, "network_error", "Network error", msg);
   }
-  if (!res.ok) throw await toApiError(res);
+  if (!res.ok) {
+    // In session mode a 401 means the login token is invalid/expired: drop the session (auto-logout).
+    if (mode === "session" && res.status === 401) clearSession();
+    throw await toApiError(res);
+  }
   const rateLimit = parseRateLimit(res.headers);
   const text = await res.text();
   const data = (text ? JSON.parse(text) : null) as T;

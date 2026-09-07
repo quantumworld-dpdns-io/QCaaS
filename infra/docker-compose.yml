@@ -13,7 +13,8 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - ../.env
+      - path: ../.env
+        required: false
     environment:
       QCAAS_DATABASE_URL: sqlite:////data/qcaas.db
       QCAAS_ENVIRONMENT: ${QCAAS_ENVIRONMENT:-dev}

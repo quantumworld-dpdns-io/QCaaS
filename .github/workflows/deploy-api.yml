@@ -35,12 +35,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - name: Deploy
+      - name: Deploy API
         run: flyctl deploy --config infra/fly.toml --app qcaas-api-staging --image "$IMAGE:${{ inputs.image_tag || 'latest' }}" --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_STAGING }}
+      - name: Deploy accounts service
+        run: flyctl deploy --config infra/fly.accounts.toml --app qcaas-accounts-staging --image "ghcr.io/${{ github.repository_owner }}/qcaas-accounts:${{ inputs.image_tag || 'latest' }}" --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_STAGING }}
       - name: Smoke test
-        run: bash infra/smoke.sh https://qcaas-api-staging.fly.dev
+        run: |
+          bash infra/smoke.sh https://qcaas-api-staging.fly.dev
+          curl -fsS --retry 10 --retry-delay 6 --retry-all-errors https://qcaas-accounts-staging.fly.dev/healthz | grep -q '"qcaas_api":"ok"'
         env:
           QCAAS_SMOKE_API_KEY: ${{ secrets.STAGING_SMOKE_API_KEY }}
 
@@ -54,11 +60,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - name: Deploy
+      - name: Deploy API
         run: flyctl deploy --config infra/fly.toml --app qcaas-api --image "$IMAGE:${{ inputs.image_tag }}" --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_PRODUCTION }}
+      - name: Deploy accounts service
+        run: flyctl deploy --config infra/fly.accounts.toml --app qcaas-accounts --image "ghcr.io/${{ github.repository_owner }}/qcaas-accounts:${{ inputs.image_tag }}" --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_PRODUCTION }}
       - name: Smoke test
-        run: bash infra/smoke.sh https://qcaas-api.fly.dev
+        run: |
+          bash infra/smoke.sh https://qcaas-api.fly.dev
+          curl -fsS --retry 10 --retry-delay 6 --retry-all-errors https://qcaas-accounts.fly.dev/healthz | grep -q '"qcaas_api":"ok"'
         env:
           QCAAS_SMOKE_API_KEY: ${{ secrets.PRODUCTION_SMOKE_API_KEY }}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { BackendResultsTable, type BackendRow } from "@/components/BackendResultsTable";
 import { CodeBlock } from "@/components/CodeBlock";
 import { ErrorBanner } from "@/components/ErrorBanner";
@@ -12,10 +12,11 @@ import type { MessageKey } from "@/i18n/dictionaries";
 import { api } from "@/lib/api/client";
 import type { JobDetail } from "@/lib/api/types";
 import { formatUsd } from "@/lib/pricing";
+import { useApiQuery } from "@/lib/useApiQuery";
 import { useCredentials } from "@/lib/useCredentials";
 import { formatDate, prettyJson } from "@/lib/utils";
 
-const KINDS = ["optimize", "quote", "interpret"];
+const KINDS: readonly string[] = ["optimize", "quote", "interpret"];
 
 function isEncrypted(v: unknown): boolean {
   return !!v && typeof v === "object" && (v as Record<string, unknown>).encrypted === true;
@@ -43,28 +44,12 @@ function StoredPayload({ title, value, filename }: { title: string; value: Recor
 
 export function JobDetailView({ jobId }: { jobId: string }) {
   const { t, locale } = useI18n();
-  const { apiKey, payloadKey, ready } = useCredentials();
-  const [job, setJob] = useState<JobDetail | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<unknown>(null);
+  const { credential, payloadKey, ready } = useCredentials();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const r = await api.job(jobId);
-      setJob(r.data);
-    } catch (e) {
-      setError(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [jobId]);
-
-  useEffect(() => {
-    if (!ready || !apiKey) return;
-    void load();
-  }, [load, ready, apiKey, payloadKey]);
+  const fetcher = useCallback((signal: AbortSignal) => api.job(jobId, signal), [jobId]);
+  const enabled = ready && !!credential;
+  // payloadKey is part of the key so changing it in Settings re-reads the (decrypted) payload.
+  const { data: job, error, loading, refetch } = useApiQuery<JobDetail>(enabled ? `${credential}|${payloadKey ?? ""}|${jobId}` : null, fetcher);
 
   const backendRows: BackendRow[] = (job?.backend_results ?? []) as BackendRow[];
 
@@ -80,7 +65,7 @@ export function JobDetailView({ jobId }: { jobId: string }) {
         }
       />
 
-      {ready && !apiKey && (
+      {ready && !credential && (
         <EmptyState>
           <Link href="/settings" className="text-indigo-700 underline">
             {t("jobs.needKey")}
@@ -92,7 +77,7 @@ export function JobDetailView({ jobId }: { jobId: string }) {
           <Spinner /> {t("common.loading")}
         </div>
       )}
-      {error ? <ErrorBanner error={error} onRetry={load} /> : null}
+      {error ? <ErrorBanner error={error} onRetry={refetch} /> : null}
 
       {job && (
         <>

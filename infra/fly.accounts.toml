@@ -1,0 +1,38 @@
+# Fly.io app definition for the accounts service.
+#   flyctl launch --no-deploy --copy-config -c infra/fly.accounts.toml
+#   flyctl volumes create accounts_data --size 1 --region nrt -a qcaas-accounts
+#   flyctl secrets set -a qcaas-accounts ACCOUNTS_JWT_SECRET=... ACCOUNTS_ENCRYPTION_KEY=... QCAAS_ADMIN_TOKEN=...
+app = "qcaas-accounts"
+primary_region = "nrt"
+
+[build]
+  image = "ghcr.io/OWNER/qcaas-accounts:latest"
+
+[env]
+  ACCOUNTS_ENVIRONMENT = "production"
+  ACCOUNTS_DB_PATH = "/data/accounts.db"
+  ACCOUNTS_CORS_ORIGINS = "https://qcaas.example.com"
+  QCAAS_API_URL = "http://qcaas-api.internal:8000"   # Fly private networking to the API app
+
+[[mounts]]
+  source = "accounts_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    timeout = "3s"
+    path = "/healthz"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

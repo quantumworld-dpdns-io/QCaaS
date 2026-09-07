@@ -17,9 +17,20 @@ IBM Composer (Qiskit preset pass manager against the live or fake IBM `Target`) 
 engine; Classiq is the redundant second engine. Redundancy modes: `single`, `fallback` (default,
 30 s timeout, reason recorded in `selected_result.reason`), `parallel` (both run, cheapest wins).
 
+Three tiers of access:
+
+| Who | Where | How |
+|---|---|---|
+| Visitor (not logged in) | `web/` welcome + pricing pages | public |
+| Customer (logged in) | `web/` customer dashboard: provision an API key, quote / optimise / interpret through the authenticated proxy, job history | account in the **accounts service** (Go, `accounts/`), JWT |
+| Admin (logged in, role `admin`) | `web/` admin dashboard: users, roles, cross-customer jobs, revenue/QPU stats, audit log | same, role `admin` (first sign-up or `ACCOUNTS_ADMIN_EMAILS`) |
+| Machine client | `qcaas/` API directly | `X-API-Key` |
+
 ## Repository layout
 
 ```
+accounts/         Go accounts service: register/login, roles, API-key provisioning,
+                  authenticated reverse proxy (/proxy/v2/*), admin endpoints (see accounts/README.md)
 qcaas/            FastAPI app
   api/            routers: optimize, quote, interpret, jobs, health
   core/           circuits (loaders), backends (ibm, classiq, router), metrics, simulate,
@@ -141,11 +152,22 @@ uv run pytest -q                       # ~1 min; first fake-backend load dominat
 uv run qcaas export-openapi --check    # CI fails on OpenAPI drift
 ```
 
+## Accounts service and the internal API
+
+`accounts/` (Go) owns end-user identity so the browser never has to hold a raw QCaaS key:
+sign-up/login (bcrypt + HS256 JWT), roles `customer`/`admin`, API-key provisioning, an
+authenticated reverse proxy (`/proxy/v2/*` → `/v2/*` with the user's key injected), and admin
+views (users, cross-customer jobs, stats, audit log). It provisions customers through the API's
+`/internal/*` endpoints, which are guarded by the shared `QCAAS_ADMIN_TOKEN` header and are hidden
+from the public OpenAPI document (404 when the token is unset). Details: `accounts/README.md`.
+
 ## Containers, CI/CD, deployment
 
 ```bash
-docker build -f infra/Dockerfile -t qcaas-api .
-docker compose -f infra/docker-compose.yml up
+docker build -f infra/Dockerfile -t qcaas-api .                 # Python API (~300 MB)
+docker build -f infra/Dockerfile.accounts -t qcaas-accounts .   # Go accounts service (distroless)
+docker build -f infra/Dockerfile.web -t qcaas-web web           # Next.js standalone (compose/on-prem)
+docker compose -f infra/docker-compose.yml up --build           # api :8000, accounts :8080, web :3000
 ```
 
 * `.github/workflows/ci.yml` – ruff, pytest (3.11/3.12), OpenAPI + pricing drift checks, and the
