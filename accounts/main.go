@@ -22,6 +22,22 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
+	// `accounts healthcheck` is used by the distroless container's HEALTHCHECK (no curl there).
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		addr := os.Getenv("ACCOUNTS_ADDR")
+		if addr == "" {
+			addr = ":8080"
+		}
+		if addr[0] == ':' {
+			addr = "127.0.0.1" + addr
+		}
+		resp, err := http.Get("http://" + addr + "/healthz")
+		if err != nil || resp.StatusCode != http.StatusOK {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Error("config", "err", err)

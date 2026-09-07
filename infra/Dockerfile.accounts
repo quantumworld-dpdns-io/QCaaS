@@ -1,0 +1,24 @@
+# syntax=docker/dockerfile:1.7
+# Accounts / auth service (Go). Static binary on distroless, ~15 MB.
+#   docker build -f infra/Dockerfile.accounts -t qcaas-accounts .
+
+FROM golang:1.25-alpine AS build
+WORKDIR /src
+COPY accounts/go.mod accounts/go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+COPY accounts/ ./
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/accounts .
+
+FROM gcr.io/distroless/static-debian12:nonroot
+LABEL org.opencontainers.image.title="qcaas-accounts" \
+      org.opencontainers.image.description="QCaaS accounts service: sign-up/login, roles, API-key provisioning, authenticated proxy"
+ENV ACCOUNTS_ADDR=":8080" \
+    ACCOUNTS_DB_PATH="/data/accounts.db" \
+    ACCOUNTS_ENVIRONMENT="production"
+COPY --from=build /out/accounts /accounts
+VOLUME ["/data"]
+EXPOSE 8080
+USER nonroot:nonroot
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 CMD ["/accounts", "healthcheck"]
+ENTRYPOINT ["/accounts"]

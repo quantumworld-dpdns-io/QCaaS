@@ -1,6 +1,9 @@
-# Local / single-host deployment.
+# Local / single-host deployment of the whole stack.
 #   cp .env.example .env            (edit secrets)
 #   docker compose -f infra/docker-compose.yml up --build
+#   API:      http://localhost:8000/docs
+#   Accounts: http://localhost:8080/healthz
+#   Web:      http://localhost:3000
 services:
   api:
     build:
@@ -14,6 +17,8 @@ services:
     environment:
       QCAAS_DATABASE_URL: sqlite:////data/qcaas.db
       QCAAS_ENVIRONMENT: ${QCAAS_ENVIRONMENT:-dev}
+      QCAAS_ADMIN_TOKEN: ${QCAAS_ADMIN_TOKEN:-dev-admin-token-change-me}
+      QCAAS_CORS_ORIGINS: '["http://localhost:3000"]'
     volumes:
       - qcaas-data:/data
     healthcheck:
@@ -22,6 +27,43 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
+    restart: unless-stopped
+
+  accounts:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.accounts
+    image: qcaas-accounts:local
+    ports:
+      - "8080:8080"
+    environment:
+      ACCOUNTS_ENVIRONMENT: ${QCAAS_ENVIRONMENT:-dev}
+      ACCOUNTS_DB_PATH: /data/accounts.db
+      ACCOUNTS_JWT_SECRET: ${ACCOUNTS_JWT_SECRET:-dev-jwt-secret-change-me}
+      ACCOUNTS_ENCRYPTION_KEY: ${ACCOUNTS_ENCRYPTION_KEY:-}
+      ACCOUNTS_ADMIN_EMAILS: ${ACCOUNTS_ADMIN_EMAILS:-}
+      ACCOUNTS_CORS_ORIGINS: ${ACCOUNTS_CORS_ORIGINS:-http://localhost:3000}
+      QCAAS_API_URL: http://api:8000
+      QCAAS_ADMIN_TOKEN: ${QCAAS_ADMIN_TOKEN:-dev-admin-token-change-me}
+    volumes:
+      - accounts-data:/data
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../web
+      dockerfile: ../infra/Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+        NEXT_PUBLIC_ACCOUNTS_URL: ${NEXT_PUBLIC_ACCOUNTS_URL:-http://localhost:8080}
+    image: qcaas-web:local
+    ports:
+      - "3000:3000"
+    depends_on:
+      - accounts
     restart: unless-stopped
 
   # Phase 8: job queue for long-running QPU submissions. Enable together with a worker service.
@@ -33,4 +75,5 @@ services:
 
 volumes:
   qcaas-data:
+  accounts-data:
   # qcaas-redis:
