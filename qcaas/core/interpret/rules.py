@@ -40,7 +40,9 @@ class CountsAnalysis:
             "top3_probability_mass": round(self.top3_mass, 4),
             "entropy_bits": round(self.entropy_bits, 3),
             "max_entropy_bits": round(self.max_entropy_bits, 3),
-            "success_probability": None if self.success_probability is None else round(self.success_probability, 4),
+            "success_probability": None
+            if self.success_probability is None
+            else round(self.success_probability, 4),
             "target_bitstrings": self.target_bitstrings,
             "distribution": self.concentration,
         }
@@ -92,8 +94,10 @@ def _clean_counts(obj: dict) -> dict[str, int]:
 def _find_counts(obj: Any) -> dict | None:
     """Best-effort search for a counts-like dict inside an IBM job result structure."""
     if isinstance(obj, dict):
-        if obj and all(isinstance(k, str) and set(k) <= set("01x0123456789abcdef") for k in obj) and all(
-            isinstance(v, (int, float)) for v in obj.values()
+        if (
+            obj
+            and all(isinstance(k, str) and set(k) <= set("01x0123456789abcdef") for k in obj)
+            and all(isinstance(v, (int, float)) for v in obj.values())
         ):
             return obj
         for key in ("counts", "meas", "c", "data", "results", "samples"):
@@ -113,7 +117,9 @@ def _find_counts(obj: Any) -> dict | None:
     return None
 
 
-def analyze_counts(counts: dict[str, int], target_bitstrings: list[str] | None = None) -> CountsAnalysis:
+def analyze_counts(
+    counts: dict[str, int], target_bitstrings: list[str] | None = None
+) -> CountsAnalysis:
     shots = sum(counts.values())
     probs = {k: v / shots for k, v in counts.items()}
     ranked = sorted(probs.items(), key=lambda kv: -kv[1])
@@ -127,7 +133,7 @@ def analyze_counts(counts: dict[str, int], target_bitstrings: list[str] | None =
     if target_bitstrings:
         targets = [t.replace(" ", "") for t in target_bitstrings]
         success = sum(probs.get(t, 0.0) for t in targets)
-    if top_p >= 0.5 or (max_entropy > 0 and entropy / max_entropy < 0.4):
+    if top_p >= 0.5 or top3 >= 0.8 or (max_entropy > 0 and entropy / max_entropy < 0.4):
         conc = "peaked"
     elif max_entropy > 0 and entropy / max_entropy > 0.85:
         conc = "flat"
@@ -161,7 +167,9 @@ class NoiseAnalysis:
         return [c.message for c in self.concerns]
 
 
-def analyze_backend_noise(backend, physical_qubits: list[int], circuit=None, circuit_duration_sec: float | None = None) -> NoiseAnalysis:
+def analyze_backend_noise(
+    backend, physical_qubits: list[int], circuit=None, circuit_duration_sec: float | None = None
+) -> NoiseAnalysis:
     """Read error rates for the qubits/edges actually used from the backend Target."""
     na = NoiseAnalysis()
     if backend is None or not physical_qubits:
@@ -180,8 +188,12 @@ def analyze_backend_noise(backend, physical_qubits: list[int], circuit=None, cir
             na.worst_readout_error = max(na.worst_readout_error or 0.0, err)
             if err > READOUT_ERROR_WARN:
                 na.concerns.append(
-                    NoiseConcern(kind="readout_error", location=f"qubit {q}", value=round(err, 4),
-                                 message=f"readout error {err:.1%} on qubit {q}")
+                    NoiseConcern(
+                        kind="readout_error",
+                        location=f"qubit {q}",
+                        value=round(err, 4),
+                        message=f"readout error {err:.1%} on qubit {q}",
+                    )
                 )
 
     # Two-qubit gate errors on used edges
@@ -201,8 +213,12 @@ def analyze_backend_noise(backend, physical_qubits: list[int], circuit=None, cir
             na.worst_two_qubit_error = max(na.worst_two_qubit_error or 0.0, err)
             if err > TWO_QUBIT_ERROR_WARN:
                 na.concerns.append(
-                    NoiseConcern(kind="two_qubit_gate_error", location=f"edge {edge}", value=round(err, 4),
-                                 message=f"{name.upper()} error rate {err:.2%} on edge {edge}")
+                    NoiseConcern(
+                        kind="two_qubit_gate_error",
+                        location=f"edge {edge}",
+                        value=round(err, 4),
+                        message=f"{name.upper()} error rate {err:.2%} on edge {edge}",
+                    )
                 )
 
     # Coherence vs duration
@@ -227,7 +243,14 @@ def analyze_backend_noise(backend, physical_qubits: list[int], circuit=None, cir
         na.duration_over_coherence = circuit_duration_sec / coh
         if na.duration_over_coherence > COHERENCE_FRACTION_WARN:
             na.concerns.append(
-                NoiseConcern(kind="coherence", location="circuit", value=round(na.duration_over_coherence, 3),
-                             message=f"circuit duration is {na.duration_over_coherence:.0%} of the shortest coherence time")
+                NoiseConcern(
+                    kind="coherence",
+                    location="circuit",
+                    value=round(na.duration_over_coherence, 3),
+                    message=(
+                        f"circuit duration is {na.duration_over_coherence:.0%} "
+                        "of the shortest coherence time"
+                    ),
+                )
             )
     return na

@@ -62,17 +62,29 @@ def build_interpretation(
     # --- recommendations from noise ---
     if na:
         if any(c.kind == "readout_error" for c in na.concerns):
-            recs.append("Enable measurement error mitigation (twirled readout / TREX) for this qubit set.")
+            recs.append(
+                "Enable measurement error mitigation (twirled readout / TREX) for this qubit set."
+            )
         if any(c.kind == "two_qubit_gate_error" for c in na.concerns):
-            recs.append("Try an alternative qubit mapping or a backend with lower two-qubit error on the used edges.")
+            recs.append(
+                "Try an alternative qubit mapping or a backend with lower two-qubit error on the used edges."
+            )
         if any(c.kind == "coherence" for c in na.concerns):
-            recs.append("Reduce depth (higher optimization_level or approximate synthesis); dynamical decoupling may help.")
+            recs.append(
+                "Reduce depth (higher optimization_level or approximate synthesis); dynamical decoupling may help."
+            )
     if ca and ca.concentration == "flat" and ca.success_probability is None:
-        recs.append("Result distribution is near-uniform: the circuit may be too deep for this device or parameters are untrained.")
+        recs.append(
+            "Result distribution is near-uniform: the circuit may be too deep for this device or parameters are untrained."
+        )
     if metrics and metrics.constraint_violations:
-        recs.append("Requested constraints were not met: " + "; ".join(metrics.constraint_violations))
+        recs.append(
+            "Requested constraints were not met: " + "; ".join(metrics.constraint_violations)
+        )
     if not recs:
-        recs.append("No mitigation required at this shot count; proceed to hardware execution when budget allows.")
+        recs.append(
+            "No mitigation required at this shot count; proceed to hardware execution when budget allows."
+        )
 
     # --- business interpretation ---
     if ca is None:
@@ -98,18 +110,28 @@ def build_interpretation(
 
     next_steps = list(ALGO_NEXT_STEPS.get(algo, [])) + GENERIC_NEXT_STEPS
     if backend_name:
-        next_steps.append(f"Re-run on {backend_name} after mitigation and compare estimated vs actual QPU seconds.")
+        next_steps.append(
+            f"Re-run on {backend_name} after mitigation and compare estimated vs actual QPU seconds."
+        )
 
     key_metrics = ca.as_metrics() if ca else {}
     if metrics:
-        key_metrics.update({"depth": metrics.depth, "gate_count": metrics.gate_count, "two_qubit_gates": metrics.two_qubit_gate_count})
+        key_metrics.update(
+            {
+                "depth": metrics.depth,
+                "gate_count": metrics.gate_count,
+                "two_qubit_gates": metrics.two_qubit_gate_count,
+            }
+        )
     if na:
-        key_metrics.update({
-            "worst_readout_error": na.worst_readout_error,
-            "worst_two_qubit_error": na.worst_two_qubit_error,
-            "min_t1_sec": na.min_t1_sec,
-            "min_t2_sec": na.min_t2_sec,
-        })
+        key_metrics.update(
+            {
+                "worst_readout_error": na.worst_readout_error,
+                "worst_two_qubit_error": na.worst_two_qubit_error,
+                "min_t1_sec": na.min_t1_sec,
+                "min_t2_sec": na.min_t2_sec,
+            }
+        )
 
     return Interpretation(
         summary=summary,

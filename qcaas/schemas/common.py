@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class CircuitFormat(str, Enum):
+class CircuitFormat(StrEnum):
     qiskit_python = "qiskit_python"
     openqasm2 = "openqasm2"
     openqasm3 = "openqasm3"
@@ -13,31 +13,31 @@ class CircuitFormat(str, Enum):
     qmod = "qmod"
 
 
-class OptimizationBackend(str, Enum):
+class OptimizationBackend(StrEnum):
     ibm_composer = "ibm_composer"
     classiq = "classiq"
     auto = "auto"
 
 
-class RedundancyModeName(str, Enum):
+class RedundancyModeName(StrEnum):
     single = "single"
     parallel = "parallel"
     fallback = "fallback"
 
 
-class BudgetPlan(str, Enum):
+class BudgetPlan(StrEnum):
     payg = "payg"
     flex = "flex"
     premium = "premium"
 
 
-class SelectionMetric(str, Enum):
+class SelectionMetric(StrEnum):
     qpu_cost = "qpu_cost"
     depth = "depth"
     gate_count = "gate_count"
 
 
-class ResultFormat(str, Enum):
+class ResultFormat(StrEnum):
     ibm_job_result_json = "ibm_job_result_json"
     counts_dict = "counts_dict"
     csv = "csv"

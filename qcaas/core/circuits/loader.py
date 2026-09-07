@@ -33,7 +33,9 @@ class LoadedCircuit:
 
 def load_circuit(fmt: CircuitFormat, payload: str | dict[str, Any]) -> LoadedCircuit:
     if fmt == CircuitFormat.qiskit_python:
-        raise UnsupportedFormat("circuit_format 'qiskit_python' is not accepted", QISKIT_PYTHON_GUIDANCE)
+        raise UnsupportedFormat(
+            "circuit_format 'qiskit_python' is not accepted", QISKIT_PYTHON_GUIDANCE
+        )
 
     if isinstance(payload, str) and len(payload) > MAX_PAYLOAD_CHARS:
         raise InvalidCircuit("circuit_payload too large")

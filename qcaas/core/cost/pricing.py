@@ -34,7 +34,9 @@ class Pricing:
         jobs = max(int(c.get("jobs_per_month", 1)), 1) * 12
         return round(float(c.get("annual_contract_usd", 0.0)) / jobs, 2)
 
-    def service_cost(self, classical_minutes: float | None = None, engineer_minutes: float = 0.0) -> float:
+    def service_cost(
+        self, classical_minutes: float | None = None, engineer_minutes: float = 0.0
+    ) -> float:
         sc = self.service_costs
         if classical_minutes is None:
             classical_minutes = float(self.estimation.get("classical_minutes_per_job", 0.0))
@@ -44,7 +46,9 @@ class Pricing:
             + engineer_minutes * float(sc.get("engineer_review_per_min", 0.0))
         )
 
-    def service_fee(self, classical_minutes: float | None = None, engineer_minutes: float = 0.0) -> float:
+    def service_fee(
+        self, classical_minutes: float | None = None, engineer_minutes: float = 0.0
+    ) -> float:
         cost = self.service_cost(classical_minutes, engineer_minutes)
         fee = cost / (1.0 - self.service_margin) if self.service_margin < 1 else cost
         return round(max(fee, self.min_service_fee), 2)
@@ -89,7 +93,9 @@ class Pricing:
             "classiq_platform_fee_usd": self.classiq_fee_per_job if used_classiq else 0.0,
             "total_cost_usd": round(b.qpu_cost_usd + cost, 2),
             "total_price_usd": b.total_usd,
-            "service_margin": round(1 - cost / (b.service_fee_usd + (b.classiq_platform_fee_usd or 0.0)), 3)
+            "service_margin": round(
+                1 - cost / (b.service_fee_usd + (b.classiq_platform_fee_usd or 0.0)), 3
+            )
             if (b.service_fee_usd + (b.classiq_platform_fee_usd or 0.0)) > 0
             else 0.0,
         }

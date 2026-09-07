@@ -1,0 +1,2185 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "QCaaS API",
+    "description": "\nQuantum-Computing-as-a-Service MVP.\n\n* **POST /v2/optimize** – upload a circuit, get an optimised ISA circuit for an IBM backend, a\n  simulation, a QPU cost estimate and a business-language interpretation. IBM Composer and\n  Classiq run as redundant engines (`single | fallback | parallel`).\n* **POST /v2/quote** – price a job before running it.\n* **POST /v2/interpret** – turn measurement results into business language.\n* **GET /v2/jobs** – history for your API key.\n\nAuthenticate with the `X-API-Key` header. Optionally add `X-Payload-Key` to encrypt stored\npayloads with your own secret.\n",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Liveness/readiness probe",
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Healthz Healthz Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/optimize": {
+      "post": {
+        "tags": [
+          "optimize"
+        ],
+        "summary": "Optimise a circuit for an IBM backend (IBM Composer + Classiq redundancy)",
+        "description": "Upload a circuit → transpile/optimise for `target_backend` → simulate → estimate cost →\nbusiness interpretation. `redundancy_mode` controls IBM/Classiq fallback or parallel runs.",
+        "operationId": "optimize_v2_optimize_post",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "X-Payload-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Payload-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OptimizeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OptimizeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/v2/quote": {
+      "post": {
+        "tags": [
+          "quote"
+        ],
+        "summary": "Quote QPU time and cost for IBM Composer and Classiq without executing",
+        "operationId": "quote_v2_quote_post",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "X-Payload-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Payload-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/v2/interpret": {
+      "post": {
+        "tags": [
+          "interpret"
+        ],
+        "summary": "Business-language interpretation of measurement results",
+        "operationId": "interpret_v2_interpret_post",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "X-Payload-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Payload-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InterpretRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterpretResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v2/jobs": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "List this customer's jobs",
+        "operationId": "list_jobs_v2_jobs_get",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(optimize|quote|interpret)$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobList"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/jobs/{job_id}": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Job detail (payloads decrypt only with the original X-Payload-Key)",
+        "operationId": "get_job_v2_jobs__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "X-Payload-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Payload-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BackendEstimate": {
+        "properties": {
+          "backend": {
+            "$ref": "#/components/schemas/OptimizationBackend"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "estimated | assumed | not_applicable | error"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "depth": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depth"
+          },
+          "gate_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate Count"
+          },
+          "estimated_qpu_runtime_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Qpu Runtime Sec"
+          },
+          "estimated_qpu_cost_usd": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "propertyNames": {
+                  "$ref": "#/components/schemas/BudgetPlan"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Qpu Cost Usd",
+            "description": "Cost per plan for this backend."
+          }
+        },
+        "type": "object",
+        "required": [
+          "backend",
+          "status"
+        ],
+        "title": "BackendEstimate"
+      },
+      "BackendResult": {
+        "properties": {
+          "backend": {
+            "$ref": "#/components/schemas/OptimizationBackend"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "success | error | timeout | not_applicable | skipped"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "depth": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depth"
+          },
+          "gate_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate Count"
+          },
+          "two_qubit_gate_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Two Qubit Gate Count"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          },
+          "estimated_qpu_runtime_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Qpu Runtime Sec"
+          },
+          "estimated_qpu_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Qpu Cost Usd"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "transpiled_circuit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TranspiledCircuit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metrics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CircuitMetrics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "backend",
+          "status"
+        ],
+        "title": "BackendResult"
+      },
+      "Billing": {
+        "properties": {
+          "plan": {
+            "$ref": "#/components/schemas/BudgetPlan"
+          },
+          "qpu_cost_usd": {
+            "type": "number",
+            "title": "Qpu Cost Usd"
+          },
+          "service_fee_usd": {
+            "type": "number",
+            "title": "Service Fee Usd"
+          },
+          "classiq_platform_fee_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classiq Platform Fee Usd",
+            "description": "Present only when the Classiq fee is itemised."
+          },
+          "actual_qpu_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Qpu Cost Usd"
+          },
+          "total_usd": {
+            "type": "number",
+            "title": "Total Usd"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan",
+          "qpu_cost_usd",
+          "service_fee_usd",
+          "total_usd"
+        ],
+        "title": "Billing"
+      },
+      "BudgetPlan": {
+        "type": "string",
+        "enum": [
+          "payg",
+          "flex",
+          "premium"
+        ],
+        "title": "BudgetPlan"
+      },
+      "CircuitFormat": {
+        "type": "string",
+        "enum": [
+          "qiskit_python",
+          "openqasm2",
+          "openqasm3",
+          "json",
+          "qmod"
+        ],
+        "title": "CircuitFormat"
+      },
+      "CircuitMetrics": {
+        "properties": {
+          "depth": {
+            "type": "integer",
+            "title": "Depth"
+          },
+          "gate_count": {
+            "type": "integer",
+            "title": "Gate Count"
+          },
+          "two_qubit_gate_count": {
+            "type": "integer",
+            "title": "Two Qubit Gate Count"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "estimated_duration_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Duration Sec",
+            "description": "Critical-path duration of one shot on the target."
+          },
+          "constraint_violations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Constraint Violations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "depth",
+          "gate_count",
+          "two_qubit_gate_count",
+          "width"
+        ],
+        "title": "CircuitMetrics"
+      },
+      "Constraints": {
+        "properties": {
+          "max_depth": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Depth"
+          },
+          "max_width": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Width"
+          },
+          "max_gate_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Gate Count"
+          },
+          "error_bound": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Bound",
+            "description": "Classiq only: approximation error bound."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Constraints"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "type": "string",
+            "title": "Error"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error",
+          "code"
+        ],
+        "title": "ErrorResponse"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "InterpretContext": {
+        "properties": {
+          "algorithm": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Algorithm",
+            "examples": [
+              "QAOA",
+              "VQE"
+            ]
+          },
+          "problem_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem Description"
+          },
+          "target_metric": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Metric"
+          }
+        },
+        "type": "object",
+        "title": "InterpretContext"
+      },
+      "InterpretRequest": {
+        "properties": {
+          "result_format": {
+            "$ref": "#/components/schemas/ResultFormat"
+          },
+          "result_payload": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Result Payload"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InterpretContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target_bitstrings": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Bitstrings"
+          },
+          "target_backend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Backend",
+            "description": "If given, backend error rates are included in the analysis."
+          },
+          "physical_qubits": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Physical Qubits",
+            "description": "Physical qubits the job ran on (enables readout-error analysis)."
+          },
+          "budget_mode": {
+            "$ref": "#/components/schemas/BudgetPlan",
+            "default": "payg"
+          }
+        },
+        "type": "object",
+        "required": [
+          "result_format",
+          "result_payload"
+        ],
+        "title": "InterpretRequest",
+        "examples": [
+          {
+            "context": {
+              "algorithm": "QAOA",
+              "problem_description": "portfolio optimization with 10 assets",
+              "target_metric": "maximize probability of low-energy states"
+            },
+            "result_format": "counts_dict",
+            "result_payload": {
+              "00": 480,
+              "01": 24,
+              "10": 24,
+              "11": 496
+            },
+            "target_bitstrings": [
+              "00",
+              "11"
+            ]
+          }
+        ]
+      },
+      "InterpretResponse": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "key_metrics": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Key Metrics"
+          },
+          "noise_analysis": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Noise Analysis"
+          },
+          "business_interpretation": {
+            "type": "string",
+            "title": "Business Interpretation"
+          },
+          "recommendations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recommendations"
+          },
+          "next_steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Next Steps"
+          },
+          "confidence": {
+            "type": "string",
+            "title": "Confidence"
+          },
+          "interpretation": {
+            "$ref": "#/components/schemas/Interpretation"
+          },
+          "billing": {
+            "$ref": "#/components/schemas/Billing"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "summary",
+          "key_metrics",
+          "noise_analysis",
+          "business_interpretation",
+          "recommendations",
+          "next_steps",
+          "confidence",
+          "interpretation",
+          "billing",
+          "created_at"
+        ],
+        "title": "InterpretResponse"
+      },
+      "Interpretation": {
+        "properties": {
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "success_probability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Success Probability"
+          },
+          "key_metrics": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Key Metrics"
+          },
+          "noise_concerns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Noise Concerns"
+          },
+          "noise_analysis": {
+            "items": {
+              "$ref": "#/components/schemas/NoiseConcern"
+            },
+            "type": "array",
+            "title": "Noise Analysis"
+          },
+          "business_interpretation": {
+            "type": "string",
+            "title": "Business Interpretation"
+          },
+          "recommendations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recommendations"
+          },
+          "next_steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Next Steps"
+          },
+          "confidence": {
+            "type": "string",
+            "title": "Confidence",
+            "description": "low | medium | high"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary",
+          "business_interpretation",
+          "confidence"
+        ],
+        "title": "Interpretation"
+      },
+      "JobDetail": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "target_backend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Backend"
+          },
+          "selected_backend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Backend"
+          },
+          "total_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Usd"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "request": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request"
+          },
+          "response": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response"
+          },
+          "backend_results": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Backend Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "kind",
+          "status",
+          "target_backend",
+          "selected_backend",
+          "total_usd",
+          "created_at",
+          "expires_at",
+          "request",
+          "response",
+          "backend_results"
+        ],
+        "title": "JobDetail"
+      },
+      "JobList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/JobSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "JobList"
+      },
+      "JobSummary": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "target_backend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Backend"
+          },
+          "selected_backend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Backend"
+          },
+          "total_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Usd"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "kind",
+          "status",
+          "target_backend",
+          "selected_backend",
+          "total_usd",
+          "created_at",
+          "expires_at"
+        ],
+        "title": "JobSummary"
+      },
+      "NoiseConcern": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "location": {
+            "type": "string",
+            "title": "Location"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "location",
+          "value",
+          "message"
+        ],
+        "title": "NoiseConcern"
+      },
+      "OptimizationBackend": {
+        "type": "string",
+        "enum": [
+          "ibm_composer",
+          "classiq",
+          "auto"
+        ],
+        "title": "OptimizationBackend"
+      },
+      "OptimizeRequest": {
+        "properties": {
+          "circuit_format": {
+            "$ref": "#/components/schemas/CircuitFormat"
+          },
+          "circuit_payload": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            ],
+            "title": "Circuit Payload",
+            "description": "Source text (QASM2/QASM3/Qmod) or a JSON gate-list object."
+          },
+          "target_backend": {
+            "type": "string",
+            "title": "Target Backend",
+            "default": "ibm_sherbrooke",
+            "examples": [
+              "ibm_sherbrooke"
+            ]
+          },
+          "optimization_level": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Optimization Level",
+            "default": 2
+          },
+          "shots": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Shots",
+            "default": 1024
+          },
+          "budget_mode": {
+            "$ref": "#/components/schemas/BudgetPlan",
+            "default": "payg"
+          },
+          "optimization_backend": {
+            "$ref": "#/components/schemas/OptimizationBackend",
+            "default": "auto"
+          },
+          "constraints": {
+            "$ref": "#/components/schemas/Constraints"
+          },
+          "redundancy_mode": {
+            "$ref": "#/components/schemas/RedundancyMode"
+          },
+          "include_simulation": {
+            "type": "boolean",
+            "title": "Include Simulation",
+            "default": true
+          },
+          "noisy_simulation": {
+            "type": "boolean",
+            "title": "Noisy Simulation",
+            "description": "Simulate with the target backend's noise model (slower).",
+            "default": false
+          },
+          "execute_on_qpu": {
+            "type": "boolean",
+            "title": "Execute On Qpu",
+            "description": "Submit the selected circuit to real IBM hardware. Requires server opt-in.",
+            "default": false
+          },
+          "target_bitstrings": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Bitstrings",
+            "description": "Bitstrings considered 'success' for the interpretation."
+          },
+          "context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InterpretContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "circuit_format",
+          "circuit_payload"
+        ],
+        "title": "OptimizeRequest",
+        "examples": [
+          {
+            "budget_mode": "payg",
+            "circuit_format": "openqasm2",
+            "circuit_payload": "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[2];\ncreg c[2];\nh q[0];\ncx q[0],q[1];\nmeasure q -> c;\n",
+            "include_simulation": true,
+            "optimization_backend": "auto",
+            "optimization_level": 2,
+            "redundancy_mode": {
+              "mode": "fallback",
+              "primary": "ibm_composer"
+            },
+            "shots": 1024,
+            "target_backend": "ibm_sherbrooke"
+          }
+        ]
+      },
+      "OptimizeResponse": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "target_backend": {
+            "type": "string",
+            "title": "Target Backend"
+          },
+          "backends_used": {
+            "items": {
+              "$ref": "#/components/schemas/OptimizationBackend"
+            },
+            "type": "array",
+            "title": "Backends Used"
+          },
+          "results": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BackendResult"
+            },
+            "type": "object",
+            "title": "Results"
+          },
+          "selected_result": {
+            "$ref": "#/components/schemas/SelectedResult"
+          },
+          "transpiled_circuit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TranspiledCircuit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gate_count_before": {
+            "type": "integer",
+            "title": "Gate Count Before"
+          },
+          "gate_count_after": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate Count After"
+          },
+          "depth_before": {
+            "type": "integer",
+            "title": "Depth Before"
+          },
+          "depth_after": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depth After"
+          },
+          "estimated_qpu_runtime_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Qpu Runtime Sec"
+          },
+          "estimated_qpu_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Qpu Cost Usd"
+          },
+          "simulation_result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SimulationResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "interpretation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Interpretation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "qpu_execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QpuExecution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "billing": {
+            "$ref": "#/components/schemas/Billing"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "status",
+          "target_backend",
+          "backends_used",
+          "results",
+          "selected_result",
+          "transpiled_circuit",
+          "gate_count_before",
+          "gate_count_after",
+          "depth_before",
+          "depth_after",
+          "estimated_qpu_runtime_sec",
+          "estimated_qpu_cost_usd",
+          "simulation_result",
+          "interpretation",
+          "billing",
+          "created_at"
+        ],
+        "title": "OptimizeResponse"
+      },
+      "QpuExecution": {
+        "properties": {
+          "submitted": {
+            "type": "boolean",
+            "title": "Submitted"
+          },
+          "ibm_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ibm Job Id"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "usage_estimation_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usage Estimation Sec"
+          },
+          "actual_usage_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Usage Sec"
+          },
+          "counts": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counts"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "submitted"
+        ],
+        "title": "QpuExecution"
+      },
+      "QuoteRequest": {
+        "properties": {
+          "circuit_format": {
+            "$ref": "#/components/schemas/CircuitFormat"
+          },
+          "circuit_payload": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            ],
+            "title": "Circuit Payload",
+            "description": "Source text (QASM2/QASM3/Qmod) or a JSON gate-list object."
+          },
+          "target_backend": {
+            "type": "string",
+            "title": "Target Backend",
+            "default": "ibm_sherbrooke",
+            "examples": [
+              "ibm_sherbrooke"
+            ]
+          },
+          "optimization_level": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Optimization Level",
+            "default": 2
+          },
+          "shots": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Shots",
+            "default": 1024
+          },
+          "budget_mode": {
+            "$ref": "#/components/schemas/BudgetPlan",
+            "default": "payg"
+          },
+          "optimization_backend": {
+            "$ref": "#/components/schemas/OptimizationBackend",
+            "default": "auto"
+          },
+          "constraints": {
+            "$ref": "#/components/schemas/Constraints"
+          },
+          "redundancy_mode": {
+            "$ref": "#/components/schemas/RedundancyMode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "circuit_format",
+          "circuit_payload"
+        ],
+        "title": "QuoteRequest"
+      },
+      "QuoteResponse": {
+        "properties": {
+          "quote_id": {
+            "type": "string",
+            "title": "Quote Id"
+          },
+          "target_backend": {
+            "type": "string",
+            "title": "Target Backend"
+          },
+          "shots": {
+            "type": "integer",
+            "title": "Shots"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/BudgetPlan"
+          },
+          "estimates": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BackendEstimate"
+            },
+            "type": "object",
+            "title": "Estimates"
+          },
+          "recommended_backend": {
+            "$ref": "#/components/schemas/OptimizationBackend"
+          },
+          "recommendation_reason": {
+            "type": "string",
+            "title": "Recommendation Reason"
+          },
+          "estimated_qpu_runtime_sec": {
+            "type": "number",
+            "title": "Estimated Qpu Runtime Sec"
+          },
+          "estimated_qpu_cost_usd": {
+            "type": "number",
+            "title": "Estimated Qpu Cost Usd"
+          },
+          "service_fee_usd": {
+            "type": "number",
+            "title": "Service Fee Usd"
+          },
+          "total_usd": {
+            "type": "number",
+            "title": "Total Usd"
+          },
+          "billing": {
+            "$ref": "#/components/schemas/Billing"
+          },
+          "valid_until": {
+            "type": "string",
+            "title": "Valid Until"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "quote_id",
+          "target_backend",
+          "shots",
+          "plan",
+          "estimates",
+          "recommended_backend",
+          "recommendation_reason",
+          "estimated_qpu_runtime_sec",
+          "estimated_qpu_cost_usd",
+          "service_fee_usd",
+          "total_usd",
+          "billing",
+          "valid_until",
+          "created_at"
+        ],
+        "title": "QuoteResponse"
+      },
+      "RedundancyMode": {
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/RedundancyModeName",
+            "default": "fallback"
+          },
+          "primary": {
+            "$ref": "#/components/schemas/OptimizationBackend",
+            "default": "ibm_composer"
+          },
+          "timeout_sec": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 600.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout Sec",
+            "description": "Override the server fallback timeout."
+          },
+          "selection_metric": {
+            "$ref": "#/components/schemas/SelectionMetric",
+            "default": "qpu_cost"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RedundancyMode"
+      },
+      "RedundancyModeName": {
+        "type": "string",
+        "enum": [
+          "single",
+          "parallel",
+          "fallback"
+        ],
+        "title": "RedundancyModeName"
+      },
+      "ResultFormat": {
+        "type": "string",
+        "enum": [
+          "ibm_job_result_json",
+          "counts_dict",
+          "csv"
+        ],
+        "title": "ResultFormat"
+      },
+      "SelectedResult": {
+        "properties": {
+          "backend": {
+            "$ref": "#/components/schemas/OptimizationBackend"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "depth": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depth"
+          },
+          "gate_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "backend",
+          "reason"
+        ],
+        "title": "SelectedResult"
+      },
+      "SelectionMetric": {
+        "type": "string",
+        "enum": [
+          "qpu_cost",
+          "depth",
+          "gate_count"
+        ],
+        "title": "SelectionMetric"
+      },
+      "SimulationResult": {
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "probabilities": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Probabilities"
+          },
+          "shots": {
+            "type": "integer",
+            "title": "Shots"
+          },
+          "noisy": {
+            "type": "boolean",
+            "title": "Noisy",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "counts",
+          "probabilities",
+          "shots"
+        ],
+        "title": "SimulationResult"
+      },
+      "TranspiledCircuit": {
+        "properties": {
+          "format": {
+            "type": "string",
+            "title": "Format",
+            "description": "openqasm3 | openqasm2 | qmod"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "layout": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layout",
+            "description": "virtual qubit index (str) -> physical qubit."
+          }
+        },
+        "type": "object",
+        "required": [
+          "format",
+          "source"
+        ],
+        "title": "TranspiledCircuit"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "optimize"
+    },
+    {
+      "name": "quote"
+    },
+    {
+      "name": "interpret"
+    },
+    {
+      "name": "jobs"
+    },
+    {
+      "name": "health"
+    }
+  ]
+}

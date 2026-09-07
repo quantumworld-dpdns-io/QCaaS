@@ -1,0 +1,45 @@
+# Fly.io app definition for the QCaaS API.
+#   flyctl launch --no-deploy --copy-config          (first time; creates the app)
+#   flyctl volumes create qcaas_data --size 1 --region nrt
+#   flyctl secrets set QCAAS_API_KEY_SALT=... QCAAS_IBM_TOKEN=... CLASSIQ_CLIENT_ID=... CLASSIQ_CLIENT_SECRET=...
+#   flyctl deploy --image ghcr.io/OWNER/qcaas-api:latest   (done by .github/workflows/deploy-api.yml)
+app = "qcaas-api"
+primary_region = "nrt"   # Tokyo: closest Fly region to Taiwan
+
+[build]
+  image = "ghcr.io/OWNER/qcaas-api:latest"
+
+[env]
+  QCAAS_ENVIRONMENT = "production"
+  QCAAS_DATABASE_URL = "sqlite:////data/qcaas.db"
+  QCAAS_OFFLINE_MODE = "false"
+  QCAAS_CORS_ORIGINS = '["https://qcaas.example.com"]'
+  QCAAS_LOG_LEVEL = "INFO"
+
+[[mounts]]
+  source = "qcaas_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 1          # SQLite on a volume => exactly one machine
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 20
+    hard_limit = 40
+
+  [[http_service.checks]]
+    grace_period = "60s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/healthz"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2gb"                    # Qiskit + Aer + a 127-qubit fake target need headroom

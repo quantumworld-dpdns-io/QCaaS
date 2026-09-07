@@ -10,7 +10,9 @@ from .circuits.loader import ensure_measured
 MAX_SIM_QUBITS = 28
 
 
-def simulate(qc: QuantumCircuit, shots: int, backend=None, noisy: bool = False, seed: int = 7) -> SimulationResult:
+def simulate(
+    qc: QuantumCircuit, shots: int, backend=None, noisy: bool = False, seed: int = 7
+) -> SimulationResult:
     from qiskit_aer.noise import NoiseModel
     from qiskit_aer.primitives import SamplerV2
 

@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    name: API (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    env:
+      QCAAS_OFFLINE_MODE: "true"
+      QCAAS_DATABASE_URL: sqlite:///./data/ci.db
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.x"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install
+        run: uv sync --frozen --extra classiq
+
+      - name: Lint
+        run: |
+          uv run ruff check qcaas tests
+          uv run ruff format --check qcaas tests
+
+      - name: Test
+        run: uv run pytest -q --cov=qcaas --cov-report=xml --cov-report=term-missing:skip-covered
+
+      - name: OpenAPI drift check
+        run: uv run qcaas export-openapi --check
+
+      - name: Pricing table drift check
+        run: |
+          uv run qcaas export-pricing --out /tmp/pricing.csv
+          diff -u docs/pricing.csv /tmp/pricing.csv
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.python == '3.12'
+        with:
+          name: coverage-xml
+          path: coverage.xml
+
+  web:
+    name: Web (lint, typecheck, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test -- --run
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000

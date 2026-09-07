@@ -32,6 +32,9 @@ class InterpretRequest(BaseModel):
     target_backend: str | None = Field(
         default=None, description="If given, backend error rates are included in the analysis."
     )
+    physical_qubits: list[int] | None = Field(
+        default=None, description="Physical qubits the job ran on (enables readout-error analysis)."
+    )
     budget_mode: BudgetPlan = BudgetPlan.payg
 
 

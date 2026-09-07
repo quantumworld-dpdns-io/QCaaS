@@ -1,8 +1,39 @@
-/.ignore
-/qcaas/__pycache__
-/qcaas/core/__pycache__
-/qcaas/core/backends/__pycache__
-/qcaas/core/circuits/__pycache__
-/qcaas/core/cost/__pycache__
-/qcaas/core/interpret/__pycache__
-/qcaas/schemas/__pycache__
+# private planning material
+.ignore/
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# app data & secrets
+data/
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+!.env.example
+
+# node / next
+web/node_modules/
+web/.next/
+web/out/
+web/.vercel/
+web/next-env.d.ts
+web/*.tsbuildinfo
+
+# os / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+break.ps1

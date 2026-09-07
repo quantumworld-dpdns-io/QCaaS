@@ -42,13 +42,22 @@ def _other(b: OptimizationBackend) -> OptimizationBackend:
     return CLASSIQ if b == IBM else IBM
 
 
-def decide_auto(loaded: LoadedCircuit, settings: Settings) -> tuple[RedundancyModeName, OptimizationBackend, str]:
+def decide_auto(
+    loaded: LoadedCircuit, settings: Settings
+) -> tuple[RedundancyModeName, OptimizationBackend, str]:
     """Heuristic backend selection (spec: by circuit size, input format, history)."""
     if loaded.is_qmod:
-        return RedundancyModeName.parallel, CLASSIQ, "qmod input: Classiq synthesis + IBM re-transpile"
+        return (
+            RedundancyModeName.parallel,
+            CLASSIQ,
+            "qmod input: Classiq synthesis + IBM re-transpile",
+        )
     qc = loaded.circuit
     assert qc is not None
-    if qc.num_qubits >= settings.auto_parallel_min_width and gate_count(qc) >= settings.auto_parallel_min_gates:
+    if (
+        qc.num_qubits >= settings.auto_parallel_min_width
+        and gate_count(qc) >= settings.auto_parallel_min_gates
+    ):
         return RedundancyModeName.fallback, IBM, "large circuit: IBM primary with Classiq fallback"
     return RedundancyModeName.single, IBM, "small gate-level circuit: IBM only"
 
@@ -69,14 +78,18 @@ class Router:
 
     # ---- single backend execution -------------------------------------------------
     async def _run_one(
-        self, name: OptimizationBackend, loaded: LoadedCircuit, req: OptimizationRequest, timeout: float | None
+        self,
+        name: OptimizationBackend,
+        loaded: LoadedCircuit,
+        req: OptimizationRequest,
+        timeout: float | None,
     ) -> OptimizationOutcome:
         t0 = time.perf_counter()
         backend = self.backends[name]
         try:
             coro = asyncio.to_thread(backend.optimize, loaded, req)
             out = await asyncio.wait_for(coro, timeout=timeout) if timeout else await coro
-        except asyncio.TimeoutError:
+        except TimeoutError:
             out = OptimizationOutcome(name, "timeout", reason=f"no result within {timeout:.0f}s")
         except NotApplicable as exc:
             out = OptimizationOutcome(name, "not_applicable", reason=exc.message)
@@ -90,7 +103,11 @@ class Router:
         return out
 
     async def _run_ibm_on_classiq_output(
-        self, classiq_out: OptimizationOutcome, loaded: LoadedCircuit, req: OptimizationRequest, timeout: float | None
+        self,
+        classiq_out: OptimizationOutcome,
+        loaded: LoadedCircuit,
+        req: OptimizationRequest,
+        timeout: float | None,
     ) -> OptimizationOutcome | None:
         """For Qmod input the IBM path can only run on the Classiq-synthesised circuit."""
         if not (loaded.is_qmod and classiq_out.ok and classiq_out.circuit is not None):
@@ -112,7 +129,10 @@ class Router:
         return estimate_qpu_seconds(m.estimated_duration_sec or 0.0, shots, self.pricing)
 
     def _select(
-        self, outcomes: dict[OptimizationBackend, OptimizationOutcome], metric: SelectionMetric, shots: int
+        self,
+        outcomes: dict[OptimizationBackend, OptimizationOutcome],
+        metric: SelectionMetric,
+        shots: int,
     ) -> tuple[OptimizationOutcome | None, str]:
         ok = [o for o in outcomes.values() if o.ok]
         if not ok:
@@ -121,7 +141,11 @@ class Router:
             return ok[0], f"only {ok[0].backend.value} succeeded"
         ranked = sorted(ok, key=lambda o: (self._score(o, metric, shots), o.metrics.depth))  # type: ignore[union-attr]
         best, second = ranked[0], ranked[1]
-        label = {"qpu_cost": "lowest estimated QPU cost", "depth": "lowest depth", "gate_count": "lowest gate count"}[metric.value]
+        label = {
+            "qpu_cost": "lowest estimated QPU cost",
+            "depth": "lowest depth",
+            "gate_count": "lowest gate count",
+        }[metric.value]
         return best, f"{label} ({best.backend.value} beat {second.backend.value})"
 
     # ---- public entry point -------------------------------------------------------
@@ -159,7 +183,9 @@ class Router:
                 selected, reason = out, f"primary {primary.value} succeeded"
             else:
                 secondary = _other(primary)
-                out2 = await self._run_one(secondary, loaded, req, self.settings.request_timeout_sec)
+                out2 = await self._run_one(
+                    secondary, loaded, req, self.settings.request_timeout_sec
+                )
                 outcomes[secondary] = out2
                 if out2.ok:
                     selected = out2
@@ -169,7 +195,9 @@ class Router:
                         ibm_out = await self._run_ibm_on_classiq_output(out2, loaded, req, timeout)
                         if ibm_out and ibm_out.ok:
                             outcomes[IBM] = ibm_out
-                            selected, sel_reason = self._select(outcomes, mode.selection_metric, shots)
+                            selected, sel_reason = self._select(
+                                outcomes, mode.selection_metric, shots
+                            )
                             reason = f"{reason}; {sel_reason}"
                 else:
                     selected, reason = None, f"both backends failed: {out.reason}; {out2.reason}"
@@ -178,12 +206,15 @@ class Router:
 
         else:  # parallel
             results = await asyncio.gather(
-                self._run_one(IBM, loaded, req, timeout), self._run_one(CLASSIQ, loaded, req, timeout)
+                self._run_one(IBM, loaded, req, timeout),
+                self._run_one(CLASSIQ, loaded, req, timeout),
             )
             for o in results:
                 outcomes[o.backend] = o
             if loaded.is_qmod and outcomes[CLASSIQ].ok:
-                ibm_out = await self._run_ibm_on_classiq_output(outcomes[CLASSIQ], loaded, req, timeout)
+                ibm_out = await self._run_ibm_on_classiq_output(
+                    outcomes[CLASSIQ], loaded, req, timeout
+                )
                 if ibm_out:
                     outcomes[IBM] = ibm_out
             selected, reason = self._select(outcomes, mode.selection_metric, shots)

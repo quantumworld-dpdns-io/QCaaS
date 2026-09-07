@@ -1,0 +1,19 @@
+workload,backend,plan,shots,qpu_seconds,qpu_cost_usd,service_cost_usd,classiq_platform_fee_usd,total_cost_usd,service_fee_usd,suggested_price_usd,service_margin
+"Small experiment (5q, 50 gates)",ibm_composer,payg,1024,5.0,8.0,0.03,0.0,8.03,0.07,8.07,0.571
+"Small experiment (5q, 50 gates)",ibm_composer,flex,1024,5.0,6.0,0.03,0.0,6.03,0.07,6.07,0.571
+"Small experiment (5q, 50 gates)",ibm_composer,premium,1024,5.0,4.0,0.03,0.0,4.03,0.07,4.07,0.571
+"Small experiment (5q, 50 gates)",classiq,payg,1024,4.25,6.8,2.11,2.08,8.91,0.07,8.95,0.019
+"Small experiment (5q, 50 gates)",classiq,flex,1024,4.25,5.1,2.11,2.08,7.21,0.07,7.25,0.019
+"Small experiment (5q, 50 gates)",classiq,premium,1024,4.25,3.4,2.11,2.08,5.51,0.07,5.55,0.019
+"Medium optimization (10q, 150 gates)",ibm_composer,payg,4096,20.0,32.0,0.03,0.0,32.03,0.07,32.07,0.571
+"Medium optimization (10q, 150 gates)",ibm_composer,flex,4096,20.0,24.0,0.03,0.0,24.03,0.07,24.07,0.571
+"Medium optimization (10q, 150 gates)",ibm_composer,premium,4096,20.0,16.0,0.03,0.0,16.03,0.07,16.07,0.571
+"Medium optimization (10q, 150 gates)",classiq,payg,4096,17.0,27.2,2.11,2.08,29.31,0.07,29.35,0.019
+"Medium optimization (10q, 150 gates)",classiq,flex,4096,17.0,20.4,2.11,2.08,22.51,0.07,22.55,0.019
+"Medium optimization (10q, 150 gates)",classiq,premium,4096,17.0,13.6,2.11,2.08,15.71,0.07,15.75,0.019
+"Large VQE/QAOA (15q, 300 gates)",ibm_composer,payg,8192,60.0,96.0,0.03,0.0,96.03,0.07,96.07,0.571
+"Large VQE/QAOA (15q, 300 gates)",ibm_composer,flex,8192,60.0,72.0,0.03,0.0,72.03,0.07,72.07,0.571
+"Large VQE/QAOA (15q, 300 gates)",ibm_composer,premium,8192,60.0,48.0,0.03,0.0,48.03,0.07,48.07,0.571
+"Large VQE/QAOA (15q, 300 gates)",classiq,payg,8192,51.0,81.6,2.11,2.08,83.71,0.07,83.75,0.019
+"Large VQE/QAOA (15q, 300 gates)",classiq,flex,8192,51.0,61.2,2.11,2.08,63.31,0.07,63.35,0.019
+"Large VQE/QAOA (15q, 300 gates)",classiq,premium,8192,51.0,40.8,2.11,2.08,42.91,0.07,42.95,0.019
