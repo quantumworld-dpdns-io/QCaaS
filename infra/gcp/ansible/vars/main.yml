@@ -8,12 +8,14 @@ api_image: "ghcr.io/{{ ghcr_owner }}/qcaas-api:latest"
 accounts_image: "ghcr.io/{{ ghcr_owner }}/qcaas-accounts:latest"
 
 # Public DNS: api.{{ domain }} and accounts.{{ domain }} must point at the VM.
-domain: quantumworld.dpdns.io
+domain: zekequiskitz.dpdns.org
 acme_email: dennis.lee@mitake.com.tw
 
 # Origins allowed to call the APIs (the Vercel-hosted web app).
 web_origins:
-  - "https://qcaas.vercel.app"
+  - "https://www.zekequiskitz.dpdns.org"
+  - "https://zekequiskitz.dpdns.org"
+  - "https://qcaas-web.vercel.app"
 
 # e2-micro has 1 GB RAM; Qiskit + a 127-qubit fake target need headroom.
 swap_size_mb: 2048
@@ -23,4 +25,4 @@ ghcr_username: ""
 ghcr_token: ""
 
 # Daily backup of the compose .env and Caddy certs to the free GCS bucket (set by Terraform).
-gcs_bucket: ""
+gcs_bucket: "qcaas-507909-qcaas-data"
