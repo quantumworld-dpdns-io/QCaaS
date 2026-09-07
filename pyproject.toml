@@ -1,7 +1,7 @@
 [project]
 name = "qcaas"
 version = "0.1.0"
-description = "Quantum-Computing-as-a-Service MVP: Qiskit circuit optimization, cost quoting and business interpretation API with IBM + Classiq backends"
+description = "Quantum-Computing-as-a-Service MVP: Qiskit circuit optimization, cost quoting and business interpretation API with IBM + Classiq backends."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 dependencies = [
@@ -59,3 +59,4 @@ ignore = ["B008"]  # FastAPI Depends() in defaults
 testpaths = ["tests"]
 addopts = "-q"
 filterwarnings = ["ignore::DeprecationWarning"]
+ 
