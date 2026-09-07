@@ -4,7 +4,7 @@
 #   docker run --rm -p 8000:8000 --env-file .env qcaas-api
 
 # ---- builder ---------------------------------------------------------------
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -24,7 +24,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --extra classiq
 
 # ---- runtime ---------------------------------------------------------------
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 LABEL org.opencontainers.image.title="qcaas-api" \
       org.opencontainers.image.description="QCaaS MVP API: Qiskit optimisation, quoting and interpretation with IBM + Classiq backends" \
