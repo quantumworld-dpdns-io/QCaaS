@@ -2,14 +2,55 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Button, Card, Field, Input, PageHeader, Spinner } from "@/components/ui";
 import { useT } from "@/i18n/context";
+import { accounts } from "@/lib/auth/client";
 import { accountsErrorMessage } from "@/lib/auth/messages";
+import { getAccountsUrl } from "@/lib/auth/store";
 import type { User } from "@/lib/auth/types";
 import { useAuth } from "@/lib/auth/useAuth";
 
 const MIN_PASSWORD = 8;
+
+/** Google/GitHub sign-in buttons; only rendered for providers the server has configured. */
+function SSOButtons() {
+  const t = useT();
+  const [providers, setProviders] = useState<("google" | "github")[]>([]);
+  useEffect(() => {
+    const ac = new AbortController();
+    accounts
+      .providers(ac.signal)
+      .then((r) => setProviders(r.providers ?? []))
+      .catch(() => setProviders([]));
+    return () => ac.abort();
+  }, []);
+  if (providers.length === 0) return null;
+  const next = typeof window !== "undefined" ? window.location.search : "";
+  return (
+    <div className="space-y-3">
+      {providers.map((p) => (
+        <a
+          key={p}
+          href={`${getAccountsUrl()}/auth/oauth/${p}`}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          data-provider={p}
+          onClick={() => {
+            // Preserve ?next= across the redirect so the callback lands on the right page.
+            if (next) sessionStorage.setItem("qcaas.postLogin", new URLSearchParams(next).get("next") ?? "");
+          }}
+        >
+          {t(p === "google" ? "auth.sso.google" : "auth.sso.github")}
+        </a>
+      ))}
+      <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-slate-400">
+        <span className="h-px flex-1 bg-slate-200" />
+        {t("auth.sso.or")}
+        <span className="h-px flex-1 bg-slate-200" />
+      </div>
+    </div>
+  );
+}
 
 /** Where to send a user after login/register: `?next=` if it is a local path, else by role. */
 export function postAuthPath(user: User, search: string): string {
@@ -25,7 +66,11 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  // Surface an SSO failure passed back as ?sso_error= from the accounts callback. Read once
+  // on the client during initial state so it shows without an effect-driven setState.
+  const [error, setError] = useState<string | null>(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("sso_error") ? t("auth.sso.error") : null,
+  );
   const [busy, setBusy] = useState(false);
 
   const onSubmit = async (e: FormEvent) => {
@@ -57,6 +102,9 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         </p>
       )}
       <Card>
+        <div className="mb-4">
+          <SSOButtons />
+        </div>
         <form onSubmit={onSubmit} className="space-y-4" noValidate>
           {!isLogin && (
             <Field label={t("auth.name")} htmlFor="name">

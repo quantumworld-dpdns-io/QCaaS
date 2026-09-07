@@ -237,6 +237,13 @@ func (s *Store) CreateUser(ctx context.Context, email, name, passwordHash, role 
 	return u, nil
 }
 
+// CreateOAuthUser creates a user that authenticates via an external identity provider.
+// Such users have no password (an empty hash never matches a bcrypt comparison), so the
+// password login path rejects them automatically.
+func (s *Store) CreateOAuthUser(ctx context.Context, email, name, role string) (*User, error) {
+	return s.CreateUser(ctx, email, name, "", role)
+}
+
 func (s *Store) UserByEmail(ctx context.Context, email string) (*User, error) {
 	return scanUser(s.db.QueryRowContext(ctx, s.q(`SELECT `+userCols+` FROM users WHERE email = ?`), strings.ToLower(strings.TrimSpace(email))))
 }

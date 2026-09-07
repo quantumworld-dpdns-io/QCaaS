@@ -337,6 +337,11 @@ export const en = {
   "welcome.machine.settings": "Open Settings",
   "welcome.machine.docs": "API Docs",
 
+  "auth.sso.or": "or",
+  "auth.sso.google": "Continue with Google",
+  "auth.sso.github": "Continue with GitHub",
+  "auth.sso.error": "Single sign-on failed. Please try again or use email and password.",
+  "auth.sso.completing": "Signing you in…",
   "auth.login.title": "Log in",
   "auth.login.subtitle": "Sign in to your QCaaS account.",
   "auth.login.submit": "Log in",
@@ -800,6 +805,11 @@ export const zhTW: Dictionary = {
   "welcome.machine.settings": "開啟設定",
   "welcome.machine.docs": "API 文件",
 
+  "auth.sso.or": "或",
+  "auth.sso.google": "使用 Google 繼續",
+  "auth.sso.github": "使用 GitHub 繼續",
+  "auth.sso.error": "單一登入失敗，請重試或改用電子郵件與密碼。",
+  "auth.sso.completing": "正在登入…",
   "auth.login.title": "登入",
   "auth.login.subtitle": "登入您的 QCaaS 帳號。",
   "auth.login.submit": "登入",

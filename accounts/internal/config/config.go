@@ -24,6 +24,15 @@ type Config struct {
 	CORSOrigins     []string
 	AdminEmails     map[string]bool
 	BcryptCost      int
+
+	// SSO / OAuth. PublicURL is this service's externally reachable base (used to build
+	// OAuth redirect URIs); WebURL is the SPA the browser is sent back to after login.
+	PublicURL          string
+	WebURL             string
+	GoogleClientID     string
+	GoogleClientSecret string
+	GitHubClientID     string
+	GitHubClientSecret string
 }
 
 func (c Config) IsProduction() bool { return c.Environment == "production" }
@@ -82,7 +91,23 @@ func Load() (Config, error) {
 			c.BcryptCost = n
 		}
 	}
+
+	c.PublicURL = strings.TrimRight(os.Getenv("ACCOUNTS_PUBLIC_URL"), "/")
+	c.WebURL = strings.TrimRight(env("ACCOUNTS_WEB_URL", firstOrigin(c.CORSOrigins)), "/")
+	c.GoogleClientID = os.Getenv("GOOGLE_OAUTH_CLIENT_ID")
+	c.GoogleClientSecret = os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET")
+	c.GitHubClientID = os.Getenv("GITHUB_OAUTH_CLIENT_ID")
+	c.GitHubClientSecret = os.Getenv("GITHUB_OAUTH_CLIENT_SECRET")
 	return c, nil
+}
+
+func firstOrigin(origins []string) string {
+	for _, o := range origins {
+		if o != "" && o != "*" {
+			return o
+		}
+	}
+	return "http://localhost:3000"
 }
 
 func env(key, def string) string {

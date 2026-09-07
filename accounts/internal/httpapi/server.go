@@ -12,6 +12,7 @@ import (
 
 	"github.com/qcaas/accounts/internal/auth"
 	"github.com/qcaas/accounts/internal/config"
+	"github.com/qcaas/accounts/internal/oauth"
 	"github.com/qcaas/accounts/internal/qcaas"
 	"github.com/qcaas/accounts/internal/secrets"
 	"github.com/qcaas/accounts/internal/store"
@@ -23,18 +24,40 @@ type Server struct {
 	qcaas  *qcaas.Client
 	log    *slog.Logger
 	vercel *regexp.Regexp
+	oauth  *oauth.Registry
 }
 
 func New(cfg config.Config, st *store.Store, client *qcaas.Client, log *slog.Logger) *Server {
-	return &Server{cfg: cfg, store: st, qcaas: client, log: log, vercel: regexp.MustCompile(`^https://[a-z0-9-]+\.vercel\.app$`)}
+	return &Server{
+		cfg:    cfg,
+		store:  st,
+		qcaas:  client,
+		log:    log,
+		vercel: regexp.MustCompile(`^https://[a-z0-9-]+\.vercel\.app$`),
+		oauth: oauth.NewRegistry(oauth.Config{
+			GoogleClientID:     cfg.GoogleClientID,
+			GoogleClientSecret: cfg.GoogleClientSecret,
+			GitHubClientID:     cfg.GitHubClientID,
+			GitHubClientSecret: cfg.GitHubClientSecret,
+		}),
+	}
 }
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.handleHealth)
 
+	// API docs (OpenAPI 3 + Swagger UI).
+	mux.HandleFunc("GET /openapi.json", s.handleOpenAPI)
+	mux.HandleFunc("GET /docs", s.handleSwaggerUI)
+
 	mux.HandleFunc("POST /auth/register", s.handleRegister)
 	mux.HandleFunc("POST /auth/login", s.handleLogin)
+
+	// SSO (Google / GitHub). No-ops gracefully when a provider is not configured.
+	mux.HandleFunc("GET /auth/providers", s.handleAuthProviders)
+	mux.HandleFunc("GET /auth/oauth/{provider}", s.handleOAuthStart)
+	mux.HandleFunc("GET /auth/oauth/{provider}/callback", s.handleOAuthCallback)
 
 	mux.Handle("GET /me", s.requireAuth(http.HandlerFunc(s.handleMe)))
 	mux.Handle("PATCH /me", s.requireAuth(http.HandlerFunc(s.handleUpdateMe)))

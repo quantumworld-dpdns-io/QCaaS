@@ -49,6 +49,13 @@ services:
       ACCOUNTS_CORS_ORIGINS: ${ACCOUNTS_CORS_ORIGINS:-https://qcaas.vercel.app}
       QCAAS_API_URL: http://api:8000
       QCAAS_ADMIN_TOKEN: ${QCAAS_ADMIN_TOKEN:?required}
+      # SSO (optional; providers are disabled until both id+secret are set)
+      ACCOUNTS_PUBLIC_URL: ${ACCOUNTS_PUBLIC_URL:-}
+      ACCOUNTS_WEB_URL: ${ACCOUNTS_WEB_URL:-}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:-}
+      GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:-}
     volumes: !reset []
     deploy:
       resources:

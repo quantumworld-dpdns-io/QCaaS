@@ -32,6 +32,8 @@ export interface AccountsFetchInit {
   signal?: AbortSignal;
   /** Send the bearer token (default true). False for /auth/* so a stale token cannot leak or trigger a logout. */
   auth?: boolean;
+  /** Explicit bearer token, used before a session is stored (e.g. completing SSO). */
+  token?: string;
 }
 
 export async function toAccountsError(res: Response): Promise<AccountsError> {
@@ -60,7 +62,7 @@ export async function accountsFetch<T>(path: string, init: AccountsFetchInit = {
   const useAuth = init.auth ?? true;
   const headers = new Headers({ Accept: "application/json" });
   if (hasBody) headers.set("Content-Type", "application/json");
-  const token = useAuth ? getToken() : null;
+  const token = init.token ?? (useAuth ? getToken() : null);
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   let res: Response;
@@ -104,6 +106,17 @@ export const accounts = {
     accountsFetch<AuthResponse>("/auth/register", { method: "POST", body, auth: false }).then(storeAuth),
   login: (body: { email: string; password: string }) =>
     accountsFetch<AuthResponse>("/auth/login", { method: "POST", body, auth: false }).then(storeAuth),
+
+  /** Configured SSO providers (empty when none are set up on the server). */
+  providers: (signal?: AbortSignal) =>
+    accountsFetch<{ providers: ("google" | "github")[] }>("/auth/providers", { signal, auth: false }),
+
+  /** Finish an SSO redirect: fetch the user with the token from the URL fragment, then store the session. */
+  completeOAuth: async (token: string, expiresAt: string): Promise<User> => {
+    const r = await accountsFetch<MeResponse>("/me", { token });
+    setSession({ token, expires_at: expiresAt, user: r.user, has_api_key: r.has_api_key });
+    return r.user;
+  },
 
   /** GET /me and sync the stored session (user + has_api_key). */
   me: async (signal?: AbortSignal) => {

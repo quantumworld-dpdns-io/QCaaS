@@ -1,0 +1,197 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "QCaaS Accounts API",
+    "version": "0.1.0",
+    "description": "End-user identity for QCaaS: email/password and Google/GitHub SSO, JWT sessions, API-key provisioning, an authenticated reverse proxy to the QCaaS API (/proxy/v2/*), and admin views. Authenticate with the bearer token returned by /auth/login, /auth/register, or the SSO callback."
+  },
+  "servers": [{ "url": "/" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "Credentials": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "minLength": 8, "maxLength": 200 },
+          "name": { "type": "string" }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string" },
+          "role": { "type": "string", "enum": ["customer", "admin"] },
+          "active": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "qcaas_customer_id": { "type": "string", "nullable": true },
+          "api_key_prefix": { "type": "string", "nullable": true },
+          "api_key_created_at": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string" },
+          "expires_at": { "type": "string", "format": "date-time" },
+          "user": { "$ref": "#/components/schemas/User" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": { "error": { "type": "string" }, "code": { "type": "string" } }
+      }
+    }
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Liveness + upstream QCaaS API reachability",
+        "tags": ["system"],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "summary": "Create an account (email/password)",
+        "tags": ["auth"],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Credentials" } } }
+        },
+        "responses": {
+          "201": { "description": "created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthResponse" } } } },
+          "409": { "description": "email already registered", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "description": "invalid email or weak password", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Log in (email/password)",
+        "tags": ["auth"],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Credentials" } } }
+        },
+        "responses": {
+          "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthResponse" } } } },
+          "401": { "description": "invalid credentials", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/auth/providers": {
+      "get": {
+        "summary": "List configured SSO providers",
+        "tags": ["auth"],
+        "responses": {
+          "200": {
+            "description": "Configured providers, e.g. [\"google\",\"github\"] (empty when SSO is not configured)",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "providers": { "type": "array", "items": { "type": "string" } } } } } }
+          }
+        }
+      }
+    },
+    "/auth/oauth/{provider}": {
+      "get": {
+        "summary": "Begin SSO sign-in (redirects to Google/GitHub)",
+        "description": "Sets a CSRF state cookie and 303-redirects to the provider. Open this in the browser, not via fetch.",
+        "tags": ["auth"],
+        "parameters": [
+          { "name": "provider", "in": "path", "required": true, "schema": { "type": "string", "enum": ["google", "github"] } }
+        ],
+        "responses": {
+          "303": { "description": "redirect to the identity provider" }
+        }
+      }
+    },
+    "/auth/oauth/{provider}/callback": {
+      "get": {
+        "summary": "SSO callback (provider redirects here)",
+        "description": "Verifies state, exchanges the code, finds-or-creates the user by verified email, issues a JWT and 303-redirects to the SPA at /auth/callback#token=...&expires_at=...",
+        "tags": ["auth"],
+        "parameters": [
+          { "name": "provider", "in": "path", "required": true, "schema": { "type": "string", "enum": ["google", "github"] } },
+          { "name": "code", "in": "query", "schema": { "type": "string" } },
+          { "name": "state", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "303": { "description": "redirect to the web app (or /login?sso_error= on failure)" } }
+      }
+    },
+    "/me": {
+      "get": {
+        "summary": "Current user + whether an API key is provisioned",
+        "tags": ["me"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "ok" },
+          "401": { "description": "missing/invalid token", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "patch": {
+        "summary": "Update the current user's display name",
+        "tags": ["me"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "name": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/me/api-key": {
+      "post": {
+        "summary": "Provision a QCaaS customer + API key (idempotent)",
+        "tags": ["me"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": false, "content": { "application/json": { "schema": { "type": "object", "properties": { "plan": { "type": "string", "enum": ["payg", "flex", "premium"] }, "retention_days": { "type": "integer" } } } } } },
+        "responses": { "201": { "description": "created" }, "200": { "description": "already provisioned; returns the existing key" } }
+      },
+      "get": {
+        "summary": "Reveal the stored API key",
+        "tags": ["me"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "ok" }, "404": { "description": "no key provisioned yet" } }
+      }
+    },
+    "/proxy/v2/{path}": {
+      "post": {
+        "summary": "Authenticated reverse proxy to the QCaaS API",
+        "description": "Forwards to the QCaaS API /v2/* with the caller's own API key injected. The path after /proxy/ is passed through (e.g. /proxy/v2/quote).",
+        "tags": ["proxy"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "path", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "upstream response" }, "409": { "description": "no API key provisioned yet" } }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "summary": "List all users (admin)",
+        "tags": ["admin"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "ok" }, "403": { "description": "requires role admin" } }
+      }
+    },
+    "/admin/users/{id}": {
+      "patch": {
+        "summary": "Update a user's role/active/name (admin)",
+        "tags": ["admin"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "role": { "type": "string", "enum": ["customer", "admin"] }, "active": { "type": "boolean" }, "name": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/admin/stats": {
+      "get": { "summary": "User + QCaaS aggregate stats (admin)", "tags": ["admin"], "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "ok" } } }
+    },
+    "/admin/jobs": {
+      "get": { "summary": "Cross-customer jobs, enriched with account emails (admin)", "tags": ["admin"], "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "ok" } } }
+    },
+    "/admin/audit": {
+      "get": { "summary": "Recent audit log entries (admin)", "tags": ["admin"], "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "ok" } } }
+    }
+  }
+}
