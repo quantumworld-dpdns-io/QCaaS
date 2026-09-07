@@ -57,6 +57,24 @@ jobs:
           name: coverage-xml
           path: coverage.xml
 
+  accounts:
+    name: Accounts service (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: accounts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: accounts/go.mod
+          cache-dependency-path: accounts/go.sum
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - run: go vet ./...
+      - run: go test -race -count=1 ./...
+      - run: CGO_ENABLED=0 go build -trimpath -o /tmp/accounts .
+
   web:
     name: Web (lint, typecheck, test, build)
     runs-on: ubuntu-latest
@@ -77,3 +95,4 @@ jobs:
       - run: npm run build
         env:
           NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+          NEXT_PUBLIC_ACCOUNTS_URL: http://localhost:8080

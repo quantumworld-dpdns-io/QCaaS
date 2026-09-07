@@ -12,24 +12,19 @@ type State = "noKey" | "checking" | "connected" | "failed";
 export function ApiKeyStatus() {
   const t = useT();
   const { apiKey, ready } = useCredentials();
-  const [state, setState] = useState<State>("noKey");
+  const [probe, setProbe] = useState<{ key: string; ok: boolean } | null>(null);
 
   useEffect(() => {
-    if (!ready) return;
-    if (!apiKey) {
-      setState("noKey");
-      return;
-    }
-    let cancelled = false;
-    setState("checking");
+    if (!ready || !apiKey) return;
+    const ac = new AbortController();
     api
-      .jobs({ limit: 1 })
-      .then(() => !cancelled && setState("connected"))
-      .catch(() => !cancelled && setState("failed"));
-    return () => {
-      cancelled = true;
-    };
+      .jobs({ limit: 1 }, ac.signal)
+      .then(() => !ac.signal.aborted && setProbe({ key: apiKey, ok: true }))
+      .catch(() => !ac.signal.aborted && setProbe({ key: apiKey, ok: false }));
+    return () => ac.abort();
   }, [apiKey, ready]);
+
+  const state: State = !ready || !apiKey ? "noKey" : probe?.key !== apiKey ? "checking" : probe.ok ? "connected" : "failed";
 
   const dot: Record<State, string> = {
     noKey: "bg-slate-400",

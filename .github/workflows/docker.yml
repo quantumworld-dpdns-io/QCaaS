@@ -11,16 +11,25 @@ permissions:
   packages: write
   security-events: write
 
-env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/qcaas-api
-
 jobs:
   build:
-    name: Build, scan, push
+    name: Build, scan, push (${{ matrix.image }})
     runs-on: ubuntu-latest
-    outputs:
-      digest: ${{ steps.push.outputs.digest }}
-      version: ${{ steps.meta.outputs.version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: qcaas-api
+            dockerfile: infra/Dockerfile
+            context: .
+          - image: qcaas-accounts
+            dockerfile: infra/Dockerfile.accounts
+            context: .
+          - image: qcaas-web
+            dockerfile: infra/Dockerfile.web
+            context: web
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
     steps:
       - uses: actions/checkout@v4
 
@@ -46,8 +55,11 @@ jobs:
       - name: Build (local)
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: infra/Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ vars.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000' }}
+            NEXT_PUBLIC_ACCOUNTS_URL=${{ vars.NEXT_PUBLIC_ACCOUNTS_URL || 'http://localhost:8080' }}
           load: true
           tags: ${{ env.IMAGE }}:scan
           cache-from: type=gha
@@ -72,8 +84,11 @@ jobs:
         name: Push
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: infra/Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ vars.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000' }}
+            NEXT_PUBLIC_ACCOUNTS_URL=${{ vars.NEXT_PUBLIC_ACCOUNTS_URL || 'http://localhost:8080' }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

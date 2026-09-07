@@ -8,7 +8,7 @@ import { cn, formatNumber } from "@/lib/utils";
 import { StatusBadge } from "./StatusBadge";
 
 /** Loose row shape so the table also renders JobDetail.backend_results (untyped dicts). */
-export type BackendRow = Partial<BackendResult> & { backend?: string; status?: string };
+export type BackendRow = Omit<Partial<BackendResult>, "backend" | "status"> & { backend?: string; status?: string };
 
 export function engineLabel(t: (k: MessageKey) => string, backend: string | undefined): string {
   if (!backend) return "—";
