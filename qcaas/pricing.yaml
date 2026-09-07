@@ -1,0 +1,38 @@
+# Pricing assumptions for the QCaaS MVP.
+# Every number here is a business assumption from .ignore/specs.txt and MUST be
+# re-validated against the current IBM Quantum pricing page before quotes go live.
+
+currency: USD
+
+# IBM QPU price per minute of quantum system execution time, by plan.
+qpu_plans:
+  payg: 96.0
+  flex: 72.0
+  premium: 48.0
+
+# Our own service cost components (internal).
+service_costs:
+  api_fee_per_request: 0.02          # infra amortisation per request
+  classical_compute_per_min: 0.05    # transpile / simulate CPU time
+  engineer_review_per_min: 0.50      # optional human deep-interpretation add-on
+
+# Target gross margin on the *service* component (QPU cost is passed through at cost).
+service_margin: 0.60
+min_service_fee: 0.05
+
+# Classiq platform fee amortisation (internal). annual_contract / (jobs_per_month * 12)
+classiq:
+  annual_contract_usd: 50000
+  jobs_per_month: 2000
+  visible_to_customer: true          # if false, the fee is folded into service_fee_usd
+  # Conservative assumption used by /v2/quote when Classiq cannot synthesise (non-Qmod input).
+  assumed_qpu_seconds_saving: 0.15
+
+# QPU time estimation constants (seconds) used when the backend Target lacks durations.
+estimation:
+  default_1q_gate_sec: 6.0e-8
+  default_2q_gate_sec: 5.0e-7
+  default_measure_sec: 1.2e-6
+  repetition_delay_sec: 2.5e-4       # idle time between shots (IBM default rep_delay)
+  job_overhead_sec: 2.0              # load/compile/readout overhead per job
+  classical_minutes_per_job: 0.2     # transpile + simulate wall time assumption
