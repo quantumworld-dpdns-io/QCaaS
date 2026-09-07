@@ -22,9 +22,9 @@
 
 - name: Enable swap now
   ansible.builtin.command: swapon /swapfile
-  register: swapon
-  changed_when: swapon.rc == 0
-  failed_when: swapon.rc != 0 and 'Device or resource busy' not in swapon.stderr
+  register: base_swapon
+  changed_when: base_swapon.rc == 0
+  failed_when: base_swapon.rc != 0 and 'Device or resource busy' not in base_swapon.stderr
 
 - name: Persist swap
   ansible.posix.mount:
@@ -56,4 +56,4 @@
     path: /etc/systemd/journald.conf
     regexp: "^#?SystemMaxUse="
     line: "SystemMaxUse=200M"
-  notify: restart journald
+  notify: Restart journald

@@ -27,7 +27,7 @@
         "log-opts": { "max-size": "10m", "max-file": "3" },
         "live-restore": true
       }
-  notify: restart docker
+  notify: Restart docker
 
 - name: Docker enabled
   ansible.builtin.systemd:

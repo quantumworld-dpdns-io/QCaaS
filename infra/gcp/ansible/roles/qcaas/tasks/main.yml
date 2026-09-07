@@ -18,7 +18,7 @@
     - docker-compose.yml
     - docker-compose.gcp.yml
     - Caddyfile
-  notify: compose up
+  notify: Compose up
 
 - name: Environment file (secrets from ansible-vault)
   ansible.builtin.template:
@@ -27,7 +27,7 @@
     owner: "{{ qcaas_user }}"
     group: "{{ qcaas_user }}"
     mode: "0600"
-  notify: compose up
+  notify: Compose up
 
 - name: GHCR login (private images only)
   community.docker.docker_login:
@@ -42,7 +42,7 @@
     project_src: "{{ qcaas_dir }}"
     files: [docker-compose.yml, docker-compose.gcp.yml]
   tags: [deploy]
-  notify: compose up
+  notify: Compose up
 
 - name: Compose stack running
   community.docker.docker_compose_v2:
@@ -56,10 +56,10 @@
   ansible.builtin.uri:
     url: "https://api.{{ domain }}/healthz"
     status_code: 200
-  register: health
+  register: qcaas_health
   retries: 20
   delay: 10
-  until: health.status == 200
+  until: qcaas_health.status == 200
   tags: [deploy]
   ignore_errors: "{{ domain == 'qcaas.example.com' }}" # placeholder domain: skip the check
 
