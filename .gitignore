@@ -1,1 +1,8 @@
 /.ignore
+/qcaas/__pycache__
+/qcaas/core/__pycache__
+/qcaas/core/backends/__pycache__
+/qcaas/core/circuits/__pycache__
+/qcaas/core/cost/__pycache__
+/qcaas/core/interpret/__pycache__
+/qcaas/schemas/__pycache__
