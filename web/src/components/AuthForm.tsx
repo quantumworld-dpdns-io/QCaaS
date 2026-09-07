@@ -13,36 +13,55 @@ import { useAuth } from "@/lib/auth/useAuth";
 
 const MIN_PASSWORD = 8;
 
-/** Google/GitHub sign-in buttons; only rendered for providers the server has configured. */
+const SSO_PROVIDERS = ["google", "github"] as const;
+
+/**
+ * Google/GitHub sign-in buttons. The buttons always render so the option is visible; the
+ * accounts service decides per provider whether SSO is actually configured and redirects
+ * back with a clear message if not. When `/auth/providers` is reachable we grey out any
+ * provider it reports as unconfigured.
+ */
 function SSOButtons() {
   const t = useT();
-  const [providers, setProviders] = useState<("google" | "github")[]>([]);
+  const [enabled, setEnabled] = useState<Set<string> | null>(null); // null = unknown yet
   useEffect(() => {
     const ac = new AbortController();
     accounts
       .providers(ac.signal)
-      .then((r) => setProviders(r.providers ?? []))
-      .catch(() => setProviders([]));
+      .then((r) => setEnabled(new Set(r.providers ?? [])))
+      .catch(() => setEnabled(null)); // backend unreachable: leave buttons active
     return () => ac.abort();
   }, []);
-  if (providers.length === 0) return null;
   const next = typeof window !== "undefined" ? window.location.search : "";
   return (
     <div className="space-y-3">
-      {providers.map((p) => (
-        <a
-          key={p}
-          href={`${getAccountsUrl()}/auth/oauth/${p}`}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          data-provider={p}
-          onClick={() => {
-            // Preserve ?next= across the redirect so the callback lands on the right page.
-            if (next) sessionStorage.setItem("qcaas.postLogin", new URLSearchParams(next).get("next") ?? "");
-          }}
-        >
-          {t(p === "google" ? "auth.sso.google" : "auth.sso.github")}
-        </a>
-      ))}
+      {SSO_PROVIDERS.map((p) => {
+        const configured = enabled === null || enabled.has(p);
+        return (
+          <a
+            key={p}
+            href={`${getAccountsUrl()}/auth/oauth/${p}`}
+            aria-disabled={!configured}
+            title={configured ? undefined : t("auth.sso.notConfigured")}
+            className={`flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium ${
+              configured
+                ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                : "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
+            }`}
+            data-provider={p}
+            onClick={(e) => {
+              if (!configured) {
+                e.preventDefault();
+                return;
+              }
+              // Preserve ?next= across the redirect so the callback lands on the right page.
+              if (next) sessionStorage.setItem("qcaas.postLogin", new URLSearchParams(next).get("next") ?? "");
+            }}
+          >
+            {t(p === "google" ? "auth.sso.google" : "auth.sso.github")}
+          </a>
+        );
+      })}
       <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-slate-400">
         <span className="h-px flex-1 bg-slate-200" />
         {t("auth.sso.or")}
