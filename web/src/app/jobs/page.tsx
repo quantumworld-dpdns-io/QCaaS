@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { NeedCredential } from "@/components/NeedCredential";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Button, Card, EmptyState, PageHeader, Select, Spinner } from "@/components/ui";
+import { Button, Card, PageHeader, Select, Spinner } from "@/components/ui";
 import { useI18n } from "@/i18n/context";
 import type { MessageKey } from "@/i18n/dictionaries";
 import { api } from "@/lib/api/client";
@@ -42,13 +43,7 @@ export default function JobsPage() {
     <div className="space-y-6">
       <PageHeader title={t("jobs.title")} subtitle={t("jobs.subtitle")} />
 
-      {ready && !credential && (
-        <EmptyState>
-          <Link href="/settings" className="text-indigo-700 underline">
-            {t("jobs.needKey")}
-          </Link>
-        </EmptyState>
-      )}
+      {ready && !credential && <NeedCredential />}
 
       {enabled && (
         <Card

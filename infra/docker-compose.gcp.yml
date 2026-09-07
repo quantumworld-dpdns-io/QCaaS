@@ -1,0 +1,88 @@
+# Production override for the single e2-micro VM on GCP (1 GB RAM, Always Free).
+#   docker compose -f docker-compose.yml -f docker-compose.gcp.yml up -d
+#
+# Differences from the local file:
+#   * images are pulled from GHCR instead of built on the VM (no build tooling / RAM needed)
+#   * both services use Neon Postgres (DATABASE_URL / ACCOUNTS_DB_URL) instead of SQLite volumes
+#   * the Next.js web app is NOT run here - it lives on Vercel (free Hobby tier)
+#   * Caddy terminates TLS (Let's Encrypt) and routes api.<domain> / accounts.<domain>
+#   * memory limits keep the three containers inside 1 GB (+ 2 GB swap set up by Ansible)
+services:
+  api:
+    build: !reset null
+    image: ${API_IMAGE:-ghcr.io/OWNER/qcaas-api:latest}
+    ports: !reset []
+    environment:
+      QCAAS_ENVIRONMENT: production
+      QCAAS_DATABASE_URL: ${QCAAS_DATABASE_URL:?set the Neon connection string}
+      QCAAS_DEV_API_KEY: ""
+      QCAAS_ADMIN_TOKEN: ${QCAAS_ADMIN_TOKEN:?required}
+      QCAAS_API_KEY_SALT: ${QCAAS_API_KEY_SALT:?required}
+      QCAAS_CORS_ORIGINS: ${QCAAS_CORS_ORIGINS:-["https://qcaas.vercel.app"]}
+      QCAAS_OFFLINE_MODE: ${QCAAS_OFFLINE_MODE:-true}
+      QCAAS_IBM_TOKEN: ${QCAAS_IBM_TOKEN:-}
+      QCAAS_IBM_INSTANCE: ${QCAAS_IBM_INSTANCE:-}
+      CLASSIQ_CLIENT_ID: ${CLASSIQ_CLIENT_ID:-}
+      CLASSIQ_CLIENT_SECRET: ${CLASSIQ_CLIENT_SECRET:-}
+      # e2-micro has 2 shared vCPUs; one worker, and cap thread pools used by numpy/Aer
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+    volumes: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 640M
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  accounts:
+    build: !reset null
+    image: ${ACCOUNTS_IMAGE:-ghcr.io/OWNER/qcaas-accounts:latest}
+    ports: !reset []
+    environment:
+      ACCOUNTS_ENVIRONMENT: production
+      ACCOUNTS_DB_PATH: ${ACCOUNTS_DB_URL:?set the Neon connection string (postgres://...)}
+      ACCOUNTS_JWT_SECRET: ${ACCOUNTS_JWT_SECRET:?required}
+      ACCOUNTS_ENCRYPTION_KEY: ${ACCOUNTS_ENCRYPTION_KEY:?required}
+      ACCOUNTS_ADMIN_EMAILS: ${ACCOUNTS_ADMIN_EMAILS:-}
+      ACCOUNTS_CORS_ORIGINS: ${ACCOUNTS_CORS_ORIGINS:-https://qcaas.vercel.app}
+      QCAAS_API_URL: http://api:8000
+      QCAAS_ADMIN_TOKEN: ${QCAAS_ADMIN_TOKEN:?required}
+    volumes: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "3" }
+
+  web:
+    # Web runs on Vercel; disable the container on the VM.
+    profiles: ["disabled"]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?e.g. qcaas.example.com - api./accounts. subdomains are derived}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - accounts
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+volumes:
+  caddy-data:
+  caddy-config:

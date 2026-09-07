@@ -1,0 +1,37 @@
+# Caddy reverse proxy for the GCP VM. TLS certificates come from Let's Encrypt automatically.
+#   api.{$DOMAIN}      -> Python QCaaS API
+#   accounts.{$DOMAIN} -> Go accounts service
+# Point both DNS A records at the VM's external IP before `docker compose up`.
+{
+	email {$ACME_EMAIL}
+}
+
+api.{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy api:8000 {
+		header_up X-Forwarded-Proto {scheme}
+		transport http {
+			read_timeout 180s
+		}
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		-Server
+	}
+}
+
+accounts.{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy accounts:8080 {
+		header_up X-Forwarded-Proto {scheme}
+		transport http {
+			read_timeout 180s
+		}
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		-Server
+	}
+}

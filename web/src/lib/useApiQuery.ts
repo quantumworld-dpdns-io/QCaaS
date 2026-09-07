@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ApiResult } from "@/lib/api/client";
 
+/** Adapt a plain promise (e.g. accounts-service calls) to the ApiResult shape useApiQuery expects. */
+export function asResult<T>(p: Promise<T>): Promise<ApiResult<T>> {
+  return p.then((data) => ({ data, rateLimit: { limit: null, remaining: null } }));
+}
+
 interface Snapshot<T> {
   key: string;
   data?: T;

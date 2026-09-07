@@ -37,3 +37,12 @@ Thumbs.db
 .idea/
 .vscode/
 break.ps1
+
+# terraform / ansible (GCP)
+infra/gcp/terraform/.terraform/
+infra/gcp/terraform/*.tfstate*
+infra/gcp/terraform/terraform.tfvars
+infra/gcp/terraform/.terraform.lock.hcl
+infra/gcp/ansible/inventory.ini
+infra/gcp/ansible/vars/secrets.yml
+infra/gcp/ansible/.vault_pass

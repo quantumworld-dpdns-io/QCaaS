@@ -5,8 +5,9 @@ import { useCallback } from "react";
 import { BackendResultsTable, type BackendRow } from "@/components/BackendResultsTable";
 import { CodeBlock } from "@/components/CodeBlock";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { NeedCredential } from "@/components/NeedCredential";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Card, EmptyState, KeyValue, PageHeader, Spinner } from "@/components/ui";
+import { Card, KeyValue, PageHeader, Spinner } from "@/components/ui";
 import { useI18n } from "@/i18n/context";
 import type { MessageKey } from "@/i18n/dictionaries";
 import { api } from "@/lib/api/client";
@@ -65,13 +66,7 @@ export function JobDetailView({ jobId }: { jobId: string }) {
         }
       />
 
-      {ready && !credential && (
-        <EmptyState>
-          <Link href="/settings" className="text-indigo-700 underline">
-            {t("jobs.needKey")}
-          </Link>
-        </EmptyState>
-      )}
+      {ready && !credential && <NeedCredential />}
       {loading && (
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <Spinner /> {t("common.loading")}

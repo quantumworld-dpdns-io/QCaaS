@@ -3,26 +3,70 @@
 import Link from "next/link";
 import { useT } from "@/i18n/context";
 import type { MessageKey } from "@/i18n/dictionaries";
+import { getBaseUrl } from "@/lib/api/client";
+import { useAuth } from "@/lib/auth/useAuth";
 import { CLASSIQ_PLATFORM_FEE_USD, PLANS, QPU_USD_PER_MIN, SERVICE_FEE_FROM_USD, estimate, formatUsd } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
 const EXAMPLE_RUNTIME_SEC = 5; // "Small experiment (5q, 50 gates)" from docs/pricing.csv
+const TIERS = ["visitor", "customer", "admin"] as const;
 
-export default function LandingPage() {
+const primaryBtn = "rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700";
+const secondaryBtn = "rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50";
+
+export default function WelcomePage() {
   const t = useT();
+  const { user, loading } = useAuth();
+  const homePath = user?.role === "admin" ? "/admin" : "/dashboard";
+  const docsUrl = `${getBaseUrl()}/docs`;
+
   return (
     <div className="space-y-16">
-      <section className="pt-6 text-center">
+      {!loading && user && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900" role="status">
+          <span>{t("welcome.signedIn", { email: user.email })}</span>
+          <Link href={homePath} className="font-semibold underline">
+            {t(user.role === "admin" ? "welcome.goAdmin" : "welcome.goDashboard")} →
+          </Link>
+        </div>
+      )}
+
+      <section className="pt-2 text-center">
         <p className="mb-3 inline-block rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">{t("app.name")}</p>
         <h1 className="mx-auto max-w-3xl text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">{t("landing.hero.title")}</h1>
         <p className="mx-auto mt-4 max-w-2xl text-base text-slate-600">{t("landing.hero.subtitle")}</p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <Link href="/quote" className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">
-            {t("landing.hero.ctaQuote")}
-          </Link>
-          <Link href="/optimize" className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50">
-            {t("landing.hero.ctaOptimize")}
-          </Link>
+          {user ? (
+            <>
+              <Link href={homePath} className={primaryBtn}>
+                {t(user.role === "admin" ? "welcome.goAdmin" : "welcome.goDashboard")}
+              </Link>
+              <Link href="/quote" className={secondaryBtn}>
+                {t("landing.hero.ctaQuote")}
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className={primaryBtn}>
+                {t("welcome.hero.ctaLogin")}
+              </Link>
+              <Link href="/register" className={secondaryBtn}>
+                {t("welcome.hero.ctaRegister")}
+              </Link>
+            </>
+          )}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-6 text-center text-2xl font-bold text-slate-900">{t("welcome.tiers.title")}</h2>
+        <div className="grid gap-4 md:grid-cols-3">
+          {TIERS.map((tier) => (
+            <div key={tier} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-slate-900">{t(`welcome.tiers.${tier}.title` as MessageKey)}</h3>
+              <p className="mt-2 text-sm text-slate-600">{t(`welcome.tiers.${tier}.desc` as MessageKey)}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -84,12 +128,29 @@ export default function LandingPage() {
                     <span className="font-semibold text-slate-900">{formatUsd(ex.totalUsd)}</span>
                   </div>
                 </div>
-                <Link href="/quote" className={cn("mt-6 rounded-lg px-4 py-2 text-center text-sm font-semibold", highlight ? "bg-indigo-600 text-white hover:bg-indigo-700" : "border border-slate-300 text-slate-800 hover:bg-slate-50")}>
+                <Link href={user ? "/quote" : "/register"} className={cn("mt-6 rounded-lg px-4 py-2 text-center text-sm font-semibold", highlight ? "bg-indigo-600 text-white hover:bg-indigo-700" : "border border-slate-300 text-slate-800 hover:bg-slate-50")}>
                   {t("landing.pricing.cta")}
                 </Link>
               </div>
             );
           })}
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="max-w-2xl">
+            <h2 className="text-lg font-semibold text-slate-900">{t("welcome.machine.title")}</h2>
+            <p className="mt-1 text-sm text-slate-600">{t("welcome.machine.desc")}</p>
+          </div>
+          <div className="flex gap-2">
+            <Link href="/settings" className={secondaryBtn}>
+              {t("welcome.machine.settings")}
+            </Link>
+            <a href={docsUrl} target="_blank" rel="noreferrer" className={secondaryBtn}>
+              {t("welcome.machine.docs")} ↗
+            </a>
+          </div>
         </div>
       </section>
     </div>

@@ -1,0 +1,50 @@
+---
+- name: Docker apt key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/debian/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+
+- name: Docker apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+    filename: docker
+    state: present
+
+- name: Docker engine + compose plugin
+  ansible.builtin.apt:
+    name: [docker-ce, docker-ce-cli, containerd.io, docker-compose-plugin]
+    state: present
+    update_cache: true
+
+- name: Docker daemon config (log caps, live restore)
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    mode: "0644"
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": { "max-size": "10m", "max-file": "3" },
+        "live-restore": true
+      }
+  notify: restart docker
+
+- name: Docker enabled
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: App user in docker group
+  ansible.builtin.user:
+    name: "{{ qcaas_user }}"
+    groups: docker
+    append: true
+
+- name: Weekly image prune
+  ansible.builtin.cron:
+    name: docker prune
+    weekday: "0"
+    hour: "4"
+    minute: "0"
+    job: "docker system prune -af --filter 'until=168h' >/dev/null 2>&1"

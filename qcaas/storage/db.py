@@ -23,6 +23,14 @@ def make_engine(settings: Settings | None = None) -> Engine:
         path = url.split("///", 1)[-1]
         if path and path != ":memory:":
             Path(path).parent.mkdir(parents=True, exist_ok=True)
+    else:
+        # Postgres (Neon): serverless endpoints drop idle connections, so validate on checkout
+        # and keep the pool small (Neon free tier allows few direct connections).
+        kwargs.update(pool_pre_ping=True, pool_size=3, max_overflow=2, pool_recycle=280)
+        if url.startswith("postgresql://"):
+            url = "postgresql+psycopg://" + url[len("postgresql://") :]
+        elif url.startswith("postgres://"):
+            url = "postgresql+psycopg://" + url[len("postgres://") :]
     engine = create_engine(url, **kwargs, future=True)
     if url.startswith("sqlite"):
 

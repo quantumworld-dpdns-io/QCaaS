@@ -20,6 +20,15 @@ jobs:
       fail-fast: false
       matrix:
         python: ["3.11", "3.12"]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: pg
+          POSTGRES_DB: qcaas
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       QCAAS_OFFLINE_MODE: "true"
       QCAAS_DATABASE_URL: sqlite:///./data/ci.db
@@ -40,8 +49,13 @@ jobs:
           uv run ruff check qcaas tests
           uv run ruff format --check qcaas tests
 
-      - name: Test
+      - name: Test (SQLite)
         run: uv run pytest -q --cov=qcaas --cov-report=xml --cov-report=term-missing:skip-covered
+
+      - name: Test (PostgreSQL, as on Neon)
+        run: uv run pytest -q
+        env:
+          QCAAS_TEST_DATABASE_URL: postgresql://postgres:pg@localhost:5432/qcaas
 
       - name: OpenAPI drift check
         run: uv run qcaas export-openapi --check
@@ -63,6 +77,15 @@ jobs:
     defaults:
       run:
         working-directory: accounts
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: pg
+          POSTGRES_DB: accounts
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -73,7 +96,48 @@ jobs:
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go vet ./...
       - run: go test -race -count=1 ./...
+      - name: Store tests on PostgreSQL (as on Neon)
+        run: go test -count=1 ./internal/store/
+        env:
+          ACCOUNTS_TEST_DB_URL: postgres://postgres:pg@localhost:5433/accounts?sslmode=disable
       - run: CGO_ENABLED=0 go build -trimpath -o /tmp/accounts .
+
+  infra:
+    name: Infra (terraform validate, ansible syntax)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.*"
+      - name: terraform fmt + validate
+        working-directory: infra/gcp/terraform
+        run: |
+          terraform fmt -check -recursive
+          terraform init -backend=false -input=false
+          terraform validate
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: ansible syntax check
+        working-directory: infra/gcp/ansible
+        run: |
+          pip install --quiet "ansible-core>=2.16,<2.19" ansible-lint
+          ansible-galaxy collection install -r requirements.yml
+          cp inventory.example.ini inventory.ini
+          cp vars/secrets.example.yml vars/secrets.yml
+          ansible-playbook --syntax-check site.yml
+          ansible-lint site.yml
+      - name: compose config (gcp override)
+        env:
+          DOMAIN: example.com
+          QCAAS_DATABASE_URL: postgresql://u:p@h/db
+          ACCOUNTS_DB_URL: postgres://u:p@h/db
+          QCAAS_ADMIN_TOKEN: t
+          QCAAS_API_KEY_SALT: s
+          ACCOUNTS_JWT_SECRET: j
+          ACCOUNTS_ENCRYPTION_KEY: k
+        run: docker compose -f infra/docker-compose.yml -f infra/docker-compose.gcp.yml config --quiet
 
   web:
     name: Web (lint, typecheck, test, build)

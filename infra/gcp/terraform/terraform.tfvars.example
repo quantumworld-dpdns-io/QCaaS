@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars and edit. Never commit terraform.tfvars.
+project_id         = "my-qcaas-project"
+billing_account_id = "012345-6789AB-CDEF01"   # for the $0 budget alert; "" to skip
+region             = "us-central1"            # free e2-micro regions: us-central1 | us-west1 | us-east1
+zone               = "us-central1-a"
+admin_cidrs        = ["203.0.113.4/32"]       # your IP for SSH
+ssh_user           = "qcaas"
+ssh_public_key     = "ssh-ed25519 AAAA... qcaas-gcp"
+create_static_ip   = true
+environment        = "production"

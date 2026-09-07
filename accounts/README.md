@@ -36,7 +36,7 @@ Errors are `{error, code}`; tokens are HS256 JWTs (`Authorization: Bearer …`),
 |---|---|---|
 | `ACCOUNTS_ADDR` | `:8080` | |
 | `ACCOUNTS_ENVIRONMENT` | `dev` | `production` makes the two secrets below mandatory |
-| `ACCOUNTS_DB_PATH` | `./data/accounts.db` | SQLite (pure-Go driver) |
+| `ACCOUNTS_DB_PATH` | `./data/accounts.db` | SQLite file path (pure-Go driver) **or** a PostgreSQL URL `postgres://…?sslmode=require` (Neon); dialect is detected from the value |
 | `ACCOUNTS_JWT_SECRET` | dev value | **set in production** |
 | `ACCOUNTS_ENCRYPTION_KEY` | derived from JWT secret in dev | base64 of 32 random bytes; AES-256-GCM for stored API keys. `openssl rand -base64 32` |
 | `ACCOUNTS_JWT_TTL_HOURS` | `24` | |

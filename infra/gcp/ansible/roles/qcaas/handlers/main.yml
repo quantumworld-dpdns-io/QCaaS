@@ -1,0 +1,7 @@
+---
+- name: compose up
+  community.docker.docker_compose_v2:
+    project_src: "{{ qcaas_dir }}"
+    files: [docker-compose.yml, docker-compose.gcp.yml]
+    state: present
+    remove_orphans: true

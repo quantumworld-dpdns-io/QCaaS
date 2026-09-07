@@ -1,0 +1,80 @@
+name: Deploy to GCP VM
+
+# Re-runs the Ansible "deploy" tag against the Always Free e2-micro: pulls the newest GHCR images
+# and restarts the compose stack. Terraform/first-time provisioning stays a local, reviewed step.
+on:
+  workflow_run:
+    workflows: ["Docker image"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag to deploy (default latest)
+        default: latest
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    name: Ansible deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: gcp-production
+    concurrency:
+      group: deploy-gcp
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible
+        run: |
+          pip install --quiet "ansible-core>=2.16,<2.19"
+          ansible-galaxy collection install -r infra/gcp/ansible/requirements.yml
+
+      - name: SSH key and inventory
+        working-directory: infra/gcp/ansible
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.GCP_SSH_PRIVATE_KEY }}" > ~/.ssh/qcaas_gcp
+          chmod 600 ~/.ssh/qcaas_gcp
+          cat > inventory.ini <<EOF
+          [qcaas]
+          ${{ secrets.GCP_VM_HOST }} ansible_user=${{ vars.GCP_SSH_USER || 'qcaas' }} ansible_ssh_private_key_file=~/.ssh/qcaas_gcp
+          [qcaas:vars]
+          ansible_python_interpreter=/usr/bin/python3
+          EOF
+          printf '%s' "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > .vault_pass
+          chmod 600 .vault_pass
+
+      - name: Vaulted secrets
+        working-directory: infra/gcp/ansible
+        run: printf '%s\n' "${{ secrets.ANSIBLE_SECRETS_YML }}" > vars/secrets.yml
+
+      - name: Deploy (pull + compose up)
+        working-directory: infra/gcp/ansible
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          TAG="${{ inputs.image_tag || 'latest' }}"
+          ansible-playbook site.yml -t deploy --vault-password-file .vault_pass \
+            -e "ghcr_owner=${{ github.repository_owner }}" \
+            -e "api_image=ghcr.io/${{ github.repository_owner }}/qcaas-api:${TAG}" \
+            -e "accounts_image=ghcr.io/${{ github.repository_owner }}/qcaas-accounts:${TAG}" \
+            -e "domain=${{ vars.GCP_DOMAIN }}" \
+            -e "acme_email=${{ vars.ACME_EMAIL }}"
+
+      - name: Smoke test
+        run: |
+          curl -fsS --retry 10 --retry-delay 6 --retry-all-errors "https://api.${{ vars.GCP_DOMAIN }}/healthz"
+          curl -fsS "https://accounts.${{ vars.GCP_DOMAIN }}/healthz" | grep -q '"qcaas_api":"ok"'
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/qcaas_gcp infra/gcp/ansible/.vault_pass infra/gcp/ansible/vars/secrets.yml

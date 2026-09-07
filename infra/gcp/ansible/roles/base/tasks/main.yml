@@ -1,0 +1,59 @@
+---
+- name: Base packages
+  ansible.builtin.apt:
+    name: [ca-certificates, curl, gnupg, unattended-upgrades, fail2ban, python3, rsync]
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Enable unattended security upgrades
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    mode: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+- name: Swap file (e2-micro has 1 GB RAM)
+  ansible.builtin.command: >
+    sh -c 'fallocate -l {{ swap_size_mb }}M /swapfile && chmod 600 /swapfile && mkswap /swapfile'
+  args:
+    creates: /swapfile
+
+- name: Enable swap now
+  ansible.builtin.command: swapon /swapfile
+  register: swapon
+  changed_when: swapon.rc == 0
+  failed_when: swapon.rc != 0 and 'Device or resource busy' not in swapon.stderr
+
+- name: Persist swap
+  ansible.posix.mount:
+    src: /swapfile
+    path: none
+    fstype: swap
+    opts: sw
+    state: present
+
+- name: Kernel tuning for a small box
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: true
+  loop:
+    - { key: vm.swappiness, value: "20" }
+    - { key: vm.overcommit_memory, value: "1" }
+
+- name: Application user
+  ansible.builtin.user:
+    name: "{{ qcaas_user }}"
+    shell: /bin/bash
+    groups: []
+    create_home: true
+
+- name: Journald size cap (30 GB disk is the free allowance)
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/journald.conf
+    regexp: "^#?SystemMaxUse="
+    line: "SystemMaxUse=200M"
+  notify: restart journald

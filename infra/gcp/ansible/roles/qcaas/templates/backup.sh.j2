@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Nightly backup of the compose env and Caddy TLS data to the free-tier GCS bucket.
+# Databases live in Neon (which has its own point-in-time restore), so only config is backed up.
+set -euo pipefail
+STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+TMP=$(mktemp -d)
+cp {{ qcaas_dir }}/.env "$TMP/env"
+docker run --rm -v qcaas_caddy-data:/data -v "$TMP":/out alpine tar czf /out/caddy-data.tgz -C /data . 2>/dev/null || true
+tar czf "/tmp/qcaas-backup-$STAMP.tgz" -C "$TMP" .
+# The VM service account has objectAdmin on the bucket; gcloud is preinstalled on GCE Debian images.
+gcloud storage cp "/tmp/qcaas-backup-$STAMP.tgz" "gs://{{ gcs_bucket }}/backups/" --quiet
+rm -rf "$TMP" "/tmp/qcaas-backup-$STAMP.tgz"

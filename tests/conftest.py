@@ -39,8 +39,11 @@ GHZ_JSON = {
 def settings() -> Settings:
     tmp = Path(tempfile.mkdtemp(prefix="qcaas-test-"))
     os.environ.pop("QCAAS_DATABASE_URL", None)
+    db_url = (
+        os.environ.get("QCAAS_TEST_DATABASE_URL") or f"sqlite:///{(tmp / 'test.db').as_posix()}"
+    )
     return Settings(
-        database_url=f"sqlite:///{(tmp / 'test.db').as_posix()}",
+        database_url=db_url,
         dev_api_key=TEST_KEY,
         api_key_salt="test-salt",
         offline_mode=True,

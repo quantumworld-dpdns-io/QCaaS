@@ -1,4 +1,7 @@
-// Package store is the SQLite persistence layer (pure-Go driver, no cgo).
+// Package store is the persistence layer. Two dialects are supported and chosen from the DSN:
+//
+//   - SQLite (pure-Go driver, no cgo): a file path such as ./data/accounts.db or ":memory:"
+//   - PostgreSQL (pgx): postgres://user:pass@host/db?sslmode=require  (e.g. Neon)
 package store
 
 import (
@@ -7,11 +10,14 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
 )
 
@@ -22,6 +28,13 @@ const (
 
 var ErrNotFound = errors.New("not found")
 var ErrEmailTaken = errors.New("email already registered")
+
+type Dialect string
+
+const (
+	DialectSQLite   Dialect = "sqlite"
+	DialectPostgres Dialect = "postgres"
+)
 
 type User struct {
 	ID              string     `json:"id"`
@@ -39,32 +52,104 @@ type User struct {
 
 func (u User) HasAPIKey() bool { return len(u.APIKeyEnc) > 0 }
 
-type Store struct{ db *sql.DB }
+type Store struct {
+	db      *sql.DB
+	dialect Dialect
+}
 
-func Open(path string) (*Store, error) {
-	if path != ":memory:" {
-		if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+func DialectFor(dsn string) Dialect {
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		return DialectPostgres
+	}
+	return DialectSQLite
+}
+
+func Open(dsn string) (*Store, error) {
+	dialect := DialectFor(dsn)
+	var db *sql.DB
+	var err error
+	switch dialect {
+	case DialectPostgres:
+		db, err = sql.Open("pgx", dsn)
+		if err != nil {
 			return nil, err
 		}
+		db.SetMaxOpenConns(5) // Neon free tier: keep the pool small
+		db.SetConnMaxIdleTime(5 * time.Minute)
+	default:
+		if dsn != ":memory:" {
+			if err := os.MkdirAll(filepath.Dir(dsn), 0o750); err != nil {
+				return nil, err
+			}
+		}
+		db, err = sql.Open("sqlite", dsn+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)")
+		if err != nil {
+			return nil, err
+		}
+		db.SetMaxOpenConns(1) // SQLite: serialise writers
 	}
-	dsn := path + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)"
-	db, err := sql.Open("sqlite", dsn)
-	if err != nil {
-		return nil, err
+	s := &Store{db: db, dialect: dialect}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("connect (%s): %w", dialect, err)
 	}
-	db.SetMaxOpenConns(1) // SQLite: serialise writers
-	s := &Store{db: db}
-	if err := s.migrate(); err != nil {
+	if err := s.migrate(ctx); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
 	return s, nil
 }
 
-func (s *Store) Close() error { return s.db.Close() }
+func (s *Store) Close() error     { return s.db.Close() }
+func (s *Store) Dialect() Dialect { return s.dialect }
 
-func (s *Store) migrate() error {
-	_, err := s.db.Exec(`
+// q rewrites '?' placeholders to $1..$n for PostgreSQL.
+func (s *Store) q(query string) string {
+	if s.dialect != DialectPostgres {
+		return query
+	}
+	var b strings.Builder
+	n := 0
+	for _, r := range query {
+		if r == '?' {
+			n++
+			fmt.Fprintf(&b, "$%d", n)
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+func (s *Store) migrate(ctx context.Context) error {
+	var stmts []string
+	if s.dialect == DialectPostgres {
+		stmts = []string{`
+CREATE TABLE IF NOT EXISTS users (
+  id                 TEXT PRIMARY KEY,
+  email              TEXT NOT NULL UNIQUE,
+  name               TEXT NOT NULL DEFAULT '',
+  password_hash      TEXT NOT NULL,
+  role               TEXT NOT NULL DEFAULT 'customer',
+  active             INTEGER NOT NULL DEFAULT 1,
+  created_at         TEXT NOT NULL,
+  qcaas_customer_id  TEXT,
+  api_key_enc        BYTEA,
+  api_key_prefix     TEXT,
+  api_key_created_at TEXT
+)`, `
+CREATE TABLE IF NOT EXISTS audit_log (
+  id         BIGSERIAL PRIMARY KEY,
+  at         TEXT NOT NULL,
+  actor_id   TEXT,
+  action     TEXT NOT NULL,
+  target_id  TEXT,
+  detail     TEXT
+)`}
+	} else {
+		stmts = []string{`
 CREATE TABLE IF NOT EXISTS users (
   id                 TEXT PRIMARY KEY,
   email              TEXT NOT NULL UNIQUE,
@@ -77,7 +162,7 @@ CREATE TABLE IF NOT EXISTS users (
   api_key_enc        BLOB,
   api_key_prefix     TEXT,
   api_key_created_at TEXT
-);
+)`, `
 CREATE TABLE IF NOT EXISTS audit_log (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   at         TEXT NOT NULL,
@@ -85,8 +170,22 @@ CREATE TABLE IF NOT EXISTS audit_log (
   action     TEXT NOT NULL,
   target_id  TEXT,
   detail     TEXT
-);`)
-	return err
+)`}
+	}
+	for _, st := range stmts {
+		if _, err := s.db.ExecContext(ctx, st); err != nil {
+			return fmt.Errorf("migrate: %w", err)
+		}
+	}
+	return nil
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return strings.Contains(err.Error(), "UNIQUE")
 }
 
 func NewID() string {
@@ -127,10 +226,10 @@ func scanUser(row interface{ Scan(dest ...any) error }) (*User, error) {
 func (s *Store) CreateUser(ctx context.Context, email, name, passwordHash, role string) (*User, error) {
 	u := &User{ID: NewID(), Email: strings.ToLower(strings.TrimSpace(email)), Name: name, PasswordHash: passwordHash, Role: role, Active: true, CreatedAt: time.Now().UTC()}
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO users (id, email, name, password_hash, role, active, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)`,
+		s.q(`INSERT INTO users (id, email, name, password_hash, role, active, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)`),
 		u.ID, u.Email, u.Name, u.PasswordHash, u.Role, u.CreatedAt.Format(time.RFC3339Nano))
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE") {
+		if isUniqueViolation(err) {
 			return nil, ErrEmailTaken
 		}
 		return nil, err
@@ -139,11 +238,11 @@ func (s *Store) CreateUser(ctx context.Context, email, name, passwordHash, role 
 }
 
 func (s *Store) UserByEmail(ctx context.Context, email string) (*User, error) {
-	return scanUser(s.db.QueryRowContext(ctx, `SELECT `+userCols+` FROM users WHERE email = ?`, strings.ToLower(strings.TrimSpace(email))))
+	return scanUser(s.db.QueryRowContext(ctx, s.q(`SELECT `+userCols+` FROM users WHERE email = ?`), strings.ToLower(strings.TrimSpace(email))))
 }
 
 func (s *Store) UserByID(ctx context.Context, id string) (*User, error) {
-	return scanUser(s.db.QueryRowContext(ctx, `SELECT `+userCols+` FROM users WHERE id = ?`, id))
+	return scanUser(s.db.QueryRowContext(ctx, s.q(`SELECT `+userCols+` FROM users WHERE id = ?`), id))
 }
 
 func (s *Store) ListUsers(ctx context.Context) ([]*User, error) {
@@ -165,7 +264,7 @@ func (s *Store) ListUsers(ctx context.Context) ([]*User, error) {
 
 func (s *Store) CountAdmins(ctx context.Context) (int, error) {
 	var n int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE role = ? AND active = 1`, RoleAdmin).Scan(&n)
+	err := s.db.QueryRowContext(ctx, s.q(`SELECT COUNT(*) FROM users WHERE role = ? AND active = 1`), RoleAdmin).Scan(&n)
 	return n, err
 }
 
@@ -176,7 +275,7 @@ func (s *Store) CountUsers(ctx context.Context) (total, withKey int, err error) 
 
 func (s *Store) UpdateUser(ctx context.Context, id string, role *string, active *bool, name *string) (*User, error) {
 	if role != nil {
-		if _, err := s.db.ExecContext(ctx, `UPDATE users SET role = ? WHERE id = ?`, *role, id); err != nil {
+		if _, err := s.db.ExecContext(ctx, s.q(`UPDATE users SET role = ? WHERE id = ?`), *role, id); err != nil {
 			return nil, err
 		}
 	}
@@ -185,12 +284,12 @@ func (s *Store) UpdateUser(ctx context.Context, id string, role *string, active 
 		if *active {
 			v = 1
 		}
-		if _, err := s.db.ExecContext(ctx, `UPDATE users SET active = ? WHERE id = ?`, v, id); err != nil {
+		if _, err := s.db.ExecContext(ctx, s.q(`UPDATE users SET active = ? WHERE id = ?`), v, id); err != nil {
 			return nil, err
 		}
 	}
 	if name != nil {
-		if _, err := s.db.ExecContext(ctx, `UPDATE users SET name = ? WHERE id = ?`, *name, id); err != nil {
+		if _, err := s.db.ExecContext(ctx, s.q(`UPDATE users SET name = ? WHERE id = ?`), *name, id); err != nil {
 			return nil, err
 		}
 	}
@@ -199,7 +298,7 @@ func (s *Store) UpdateUser(ctx context.Context, id string, role *string, active 
 
 func (s *Store) SetAPIKey(ctx context.Context, id, customerID string, enc []byte, prefix string) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE users SET qcaas_customer_id = ?, api_key_enc = ?, api_key_prefix = ?, api_key_created_at = ? WHERE id = ?`,
+		s.q(`UPDATE users SET qcaas_customer_id = ?, api_key_enc = ?, api_key_prefix = ?, api_key_created_at = ? WHERE id = ?`),
 		customerID, enc, prefix, time.Now().UTC().Format(time.RFC3339Nano), id)
 	if err != nil {
 		return err
@@ -211,7 +310,7 @@ func (s *Store) SetAPIKey(ctx context.Context, id, customerID string, enc []byte
 }
 
 func (s *Store) Audit(ctx context.Context, actorID, action, targetID, detail string) {
-	_, _ = s.db.ExecContext(ctx, `INSERT INTO audit_log (at, actor_id, action, target_id, detail) VALUES (?, ?, ?, ?, ?)`,
+	_, _ = s.db.ExecContext(ctx, s.q(`INSERT INTO audit_log (at, actor_id, action, target_id, detail) VALUES (?, ?, ?, ?, ?)`),
 		time.Now().UTC().Format(time.RFC3339Nano), actorID, action, targetID, detail)
 }
 
@@ -225,7 +324,7 @@ type AuditEntry struct {
 }
 
 func (s *Store) RecentAudit(ctx context.Context, limit int) ([]AuditEntry, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, at, COALESCE(actor_id,''), action, COALESCE(target_id,''), COALESCE(detail,'') FROM audit_log ORDER BY id DESC LIMIT ?`, limit)
+	rows, err := s.db.QueryContext(ctx, s.q(`SELECT id, at, COALESCE(actor_id,''), action, COALESCE(target_id,''), COALESCE(detail,'') FROM audit_log ORDER BY id DESC LIMIT ?`), limit)
 	if err != nil {
 		return nil, err
 	}

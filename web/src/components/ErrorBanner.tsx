@@ -19,6 +19,7 @@ export function ErrorBanner({ error, onRetry }: { error: unknown; onRetry?: () =
     detail = error.detail;
     status = error.status;
     if (error.code === "network_error") hintKey = "error.hint.network";
+    else if (error.code === "no_api_key") hintKey = "error.hint.no_api_key";
     else if ([401, 404, 422, 429, 503].includes(error.status)) hintKey = `error.hint.${error.status}` as MessageKey;
     if (!message) message = t("error.title");
   }

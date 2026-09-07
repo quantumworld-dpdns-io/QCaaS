@@ -161,6 +161,29 @@ views (users, cross-customer jobs, stats, audit log). It provisions customers th
 `/internal/*` endpoints, which are guarded by the shared `QCAAS_ADMIN_TOKEN` header and are hidden
 from the public OpenAPI document (404 when the token is unset). Details: `accounts/README.md`.
 
+## Database: Neon Postgres (production) / SQLite (dev)
+
+Both services pick the driver from the connection string, so local development stays on SQLite
+and production points at **Neon** (serverless Postgres, free tier):
+
+| Service | Variable | Neon value |
+|---|---|---|
+| Python API | `QCAAS_DATABASE_URL` | `postgresql://user:pass@ep-….neon.tech/qcaas_api?sslmode=require` (the `psycopg` driver is selected automatically; small pool, `pool_pre_ping`) |
+| Go accounts | `ACCOUNTS_DB_PATH` (or `ACCOUNTS_DB_URL` in compose) | `postgres://user:pass@ep-….neon.tech/qcaas_accounts?sslmode=require` |
+
+Schemas are created on first start. CI runs both test suites against SQLite **and** a real
+PostgreSQL service; locally: `QCAAS_TEST_DATABASE_URL=postgresql://… uv run pytest` and
+`ACCOUNTS_TEST_DB_URL=postgres://… go test ./internal/store/`.
+
+## Hosting on GCP Always Free (USD 0 target)
+
+`infra/gcp/` provisions one Always-Free **e2-micro** (us-central1) with Terraform, then configures
+it with Ansible (Docker, swap, hardening) and runs `infra/docker-compose.yml` +
+`infra/docker-compose.gcp.yml` (GHCR images, Neon databases, Caddy TLS). The web app stays on
+Vercel. A USD 1 budget with a 1 % alert stands in for the "$0 budget reminder". Full runbook and
+the free-tier caveats (external IPv4, egress, Cloud Run trade-off): `infra/gcp/README.md`.
+Continuous deploys: `.github/workflows/deploy-gcp.yml`.
+
 ## Containers, CI/CD, deployment
 
 ```bash

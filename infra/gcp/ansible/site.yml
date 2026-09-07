@@ -1,0 +1,15 @@
+---
+# Configure the Always Free e2-micro VM and run the QCaaS compose stack on it.
+#   ansible-galaxy collection install -r requirements.yml
+#   ansible-playbook site.yml            (first run: full setup)
+#   ansible-playbook site.yml -t deploy  (later: pull new images + restart)
+- name: QCaaS VM
+  hosts: qcaas
+  become: true
+  vars_files:
+    - vars/main.yml
+    - vars/secrets.yml # ansible-vault; see vars/secrets.example.yml
+  roles:
+    - { role: base, tags: [base] }
+    - { role: docker, tags: [docker] }
+    - { role: qcaas, tags: [qcaas, deploy] }

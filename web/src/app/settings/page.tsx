@@ -1,12 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button, Card, Field, Input, KeyValue, PageHeader, Spinner } from "@/components/ui";
 import { useT } from "@/i18n/context";
 import { api, clearCredentials, getBaseUrl, setCredentials, type RateLimit } from "@/lib/api/client";
+import { useAuth } from "@/lib/auth/useAuth";
 import { useCredentials } from "@/lib/useCredentials";
+import { cn } from "@/lib/utils";
 
 type Check = { state: "idle" | "running" | "ok" | "failed"; error?: unknown; rateLimit?: RateLimit };
 
@@ -128,12 +131,34 @@ function SettingsForm({ initialApiKey, initialPayloadKey }: { initialApiKey: str
   );
 }
 
+function ModeNote() {
+  const t = useT();
+  const { session, loading } = useAuth();
+  if (loading) return null;
+  const text = session
+    ? session.has_api_key
+      ? t("settings.sessionNote", { email: session.user.email })
+      : t("settings.sessionNoKey")
+    : t("settings.directNote");
+  return (
+    <div className={cn("flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-3 text-sm", session ? "border-indigo-200 bg-indigo-50 text-indigo-900" : "border-slate-200 bg-white text-slate-600")}>
+      <span className="max-w-xl">{text}</span>
+      {session && (
+        <Link href="/dashboard" className="font-semibold underline">
+          {t("settings.goDashboard")} →
+        </Link>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const t = useT();
   const { apiKey, payloadKey, ready } = useCredentials();
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader title={t("settings.title")} subtitle={t("settings.subtitle")} />
+      <ModeNote />
       {ready ? (
         <SettingsForm initialApiKey={apiKey ?? ""} initialPayloadKey={payloadKey ?? ""} />
       ) : (

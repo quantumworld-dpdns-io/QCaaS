@@ -1,0 +1,26 @@
+---
+qcaas_dir: /opt/qcaas
+qcaas_user: qcaas
+
+# Images built by .github/workflows/docker.yml. Override with -e to pin a tag.
+ghcr_owner: OWNER
+api_image: "ghcr.io/{{ ghcr_owner }}/qcaas-api:latest"
+accounts_image: "ghcr.io/{{ ghcr_owner }}/qcaas-accounts:latest"
+
+# Public DNS: api.{{ domain }} and accounts.{{ domain }} must point at the VM.
+domain: qcaas.example.com
+acme_email: ops@example.com
+
+# Origins allowed to call the APIs (the Vercel-hosted web app).
+web_origins:
+  - "https://qcaas.vercel.app"
+
+# e2-micro has 1 GB RAM; Qiskit + a 127-qubit fake target need headroom.
+swap_size_mb: 2048
+
+# Optional: GHCR pull credentials for private images (leave empty for public packages).
+ghcr_username: ""
+ghcr_token: ""
+
+# Daily backup of the compose .env and Caddy certs to the free GCS bucket (set by Terraform).
+gcs_bucket: ""

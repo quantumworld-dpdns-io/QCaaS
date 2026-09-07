@@ -1,0 +1,79 @@
+---
+- name: App directory
+  ansible.builtin.file:
+    path: "{{ qcaas_dir }}"
+    state: directory
+    owner: "{{ qcaas_user }}"
+    group: "{{ qcaas_user }}"
+    mode: "0750"
+
+- name: Compose files and Caddyfile
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../{{ item }}"
+    dest: "{{ qcaas_dir }}/{{ item }}"
+    owner: "{{ qcaas_user }}"
+    group: "{{ qcaas_user }}"
+    mode: "0640"
+  loop:
+    - docker-compose.yml
+    - docker-compose.gcp.yml
+    - Caddyfile
+  notify: compose up
+
+- name: Environment file (secrets from ansible-vault)
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ qcaas_dir }}/.env"
+    owner: "{{ qcaas_user }}"
+    group: "{{ qcaas_user }}"
+    mode: "0600"
+  notify: compose up
+
+- name: GHCR login (private images only)
+  community.docker.docker_login:
+    registry_url: ghcr.io
+    username: "{{ ghcr_username }}"
+    password: "{{ ghcr_token }}"
+  when: ghcr_token | length > 0
+  no_log: true
+
+- name: Pull images
+  community.docker.docker_compose_v2_pull:
+    project_src: "{{ qcaas_dir }}"
+    files: [docker-compose.yml, docker-compose.gcp.yml]
+  tags: [deploy]
+  notify: compose up
+
+- name: Compose stack running
+  community.docker.docker_compose_v2:
+    project_src: "{{ qcaas_dir }}"
+    files: [docker-compose.yml, docker-compose.gcp.yml]
+    state: present
+    remove_orphans: true
+  tags: [deploy]
+
+- name: Wait for API health through Caddy
+  ansible.builtin.uri:
+    url: "https://api.{{ domain }}/healthz"
+    status_code: 200
+  register: health
+  retries: 20
+  delay: 10
+  until: health.status == 200
+  tags: [deploy]
+  ignore_errors: "{{ domain == 'qcaas.example.com' }}" # placeholder domain: skip the check
+
+- name: Backup script (env + certs -> GCS free bucket)
+  ansible.builtin.template:
+    src: backup.sh.j2
+    dest: "{{ qcaas_dir }}/backup.sh"
+    mode: "0750"
+  when: gcs_bucket | length > 0
+
+- name: Daily backup cron
+  ansible.builtin.cron:
+    name: qcaas backup
+    hour: "3"
+    minute: "30"
+    job: "{{ qcaas_dir }}/backup.sh >/dev/null 2>&1"
+  when: gcs_bucket | length > 0
