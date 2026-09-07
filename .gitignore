@@ -46,3 +46,5 @@ infra/gcp/terraform/.terraform.lock.hcl
 infra/gcp/ansible/inventory.ini
 infra/gcp/ansible/vars/secrets.yml
 infra/gcp/ansible/.vault_pass
+local.env
+/.claude

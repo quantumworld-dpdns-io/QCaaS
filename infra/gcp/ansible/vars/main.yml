@@ -3,13 +3,13 @@ qcaas_dir: /opt/qcaas
 qcaas_user: qcaas
 
 # Images built by .github/workflows/docker.yml. Override with -e to pin a tag.
-ghcr_owner: OWNER
+ghcr_owner: quantumworld-dpdns-io
 api_image: "ghcr.io/{{ ghcr_owner }}/qcaas-api:latest"
 accounts_image: "ghcr.io/{{ ghcr_owner }}/qcaas-accounts:latest"
 
 # Public DNS: api.{{ domain }} and accounts.{{ domain }} must point at the VM.
-domain: qcaas.example.com
-acme_email: ops@example.com
+domain: quantumworld.dpdns.io
+acme_email: dennis.lee@mitake.com.tw
 
 # Origins allowed to call the APIs (the Vercel-hosted web app).
 web_origins:
