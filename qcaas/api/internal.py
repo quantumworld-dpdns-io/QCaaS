@@ -154,7 +154,10 @@ def stats(session: Session = Depends(get_session)) -> dict:
     return {
         "customers": int(customers),
         "active_customers": int(active),
-        "jobs": {"total": int(sum(by_kind.values())), "by_kind": {k: int(v) for k, v in by_kind.items()}},
+        "jobs": {
+            "total": int(sum(by_kind.values())),
+            "by_kind": {k: int(v) for k, v in by_kind.items()},
+        },
         "selected_backends": {k: int(v) for k, v in by_backend.items()},
         "revenue_usd": round(float(revenue), 2),
         "estimated_qpu_seconds": round(float(qpu), 2),

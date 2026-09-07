@@ -30,6 +30,7 @@ class Customer(Base):
     retention_days: Mapped[int] = mapped_column(Integer, default=30)
     rate_limit_per_minute: Mapped[int | None] = mapped_column(Integer, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    external_id: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     jobs: Mapped[list[Job]] = relationship(back_populates="customer")

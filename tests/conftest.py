@@ -45,6 +45,7 @@ def settings() -> Settings:
         api_key_salt="test-salt",
         offline_mode=True,
         rate_limit_per_minute=1000,
+        admin_token="admin-test-token",
         fallback_timeout_sec=5,
         _env_file=None,
     )

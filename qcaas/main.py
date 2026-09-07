@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from . import __version__
-from .api import health, interpret, jobs, optimize, quote
+from .api import health, internal, interpret, jobs, optimize, quote
 from .auth.api_key import ensure_dev_customer
 from .config import Settings, get_settings
 from .core.backends.router import Router
@@ -107,6 +107,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(quote.router)
     app.include_router(interpret.router)
     app.include_router(jobs.router)
+    app.include_router(internal.router)
     return app
 
 

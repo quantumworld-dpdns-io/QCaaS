@@ -45,9 +45,7 @@ def test_provision_customer_and_use_key(client):
         f"/internal/customers/{body['customer_id']}", json={"active": False}, headers=ADMIN
     )
     assert p.status_code == 200 and p.json()["active"] is False
-    assert (
-        client.get("/v2/jobs", headers={"X-API-Key": key}).status_code == 401
-    )
+    assert client.get("/v2/jobs", headers={"X-API-Key": key}).status_code == 401
 
     lst = client.get("/internal/customers", headers=ADMIN).json()
     assert any(c["customer_id"] == body["customer_id"] for c in lst["items"])

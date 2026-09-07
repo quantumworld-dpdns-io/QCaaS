@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     # Classiq
     classiq_enabled: bool = True
 
+    # Service-to-service token for /internal/* (accounts service). Unset => routes are 404.
+    admin_token: str | None = None
+
     # Router
     fallback_timeout_sec: float = 30.0
     request_timeout_sec: float = 120.0
