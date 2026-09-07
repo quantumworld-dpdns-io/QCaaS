@@ -43,7 +43,11 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends curl \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --system app && useradd --system --gid app --home-dir /home/app --create-home app \
- && mkdir -p /data && chown app:app /data
+ && mkdir -p /data && chown app:app /data \
+ # pip/setuptools are never used at runtime (the venv is baked in the builder); drop them so
+ # their CVEs don't show up in image scans.
+ && python -m pip uninstall -y pip setuptools 2>/dev/null || true \
+ && rm -rf /usr/local/lib/python3.12/ensurepip
 
 COPY --from=builder --chown=app:app /opt/venv /opt/venv
 COPY --from=builder --chown=app:app /src/qcaas /app/qcaas
