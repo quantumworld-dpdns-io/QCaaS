@@ -44,11 +44,13 @@
     - { key: vm.swappiness, value: "20" }
     - { key: vm.overcommit_memory, value: "1" }
 
+# No `groups:` here on purpose: on GCP the guest agent puts metadata-key users in
+# google-sudoers (passwordless sudo, which Ansible's become relies on); groups: []
+# would strip that and the docker group on every run.
 - name: Application user
   ansible.builtin.user:
     name: "{{ qcaas_user }}"
     shell: /bin/bash
-    groups: []
     create_home: true
 
 - name: Journald size cap (30 GB disk is the free allowance)

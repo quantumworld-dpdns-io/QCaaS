@@ -48,3 +48,4 @@ infra/gcp/ansible/vars/secrets.yml
 infra/gcp/ansible/.vault_pass
 local.env
 /.claude
+infra/gcp/ansible/vars/secrets.vault.yml
