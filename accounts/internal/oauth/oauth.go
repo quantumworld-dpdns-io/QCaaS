@@ -159,34 +159,41 @@ func NewRegistry(cfg Config) *Registry {
 			var profile struct {
 				Name  string `json:"name"`
 				Login string `json:"login"`
+				Email string `json:"email"` // the user's public email, if any (verified by GitHub)
 			}
 			if err := getJSON(ctx, hc, "https://api.github.com/user", tok, &profile); err != nil {
-				return UserInfo{}, err
-			}
-			// GitHub only returns a verified primary email from the dedicated endpoint.
-			var emails []struct {
-				Email    string `json:"email"`
-				Primary  bool   `json:"primary"`
-				Verified bool   `json:"verified"`
-			}
-			if err := getJSON(ctx, hc, "https://api.github.com/user/emails", tok, &emails); err != nil {
 				return UserInfo{}, err
 			}
 			name := profile.Name
 			if name == "" {
 				name = profile.Login
 			}
-			for _, e := range emails {
-				if e.Primary && e.Verified {
-					return UserInfo{Email: e.Email, Name: name, Verified: true}, nil
+			// Preferred: the verified primary from the dedicated endpoint (needs the
+			// user:email scope on a classic OAuth App, or the "Email addresses: read"
+			// account permission on a GitHub App).
+			var emails []struct {
+				Email    string `json:"email"`
+				Primary  bool   `json:"primary"`
+				Verified bool   `json:"verified"`
+			}
+			if err := getJSON(ctx, hc, "https://api.github.com/user/emails", tok, &emails); err == nil {
+				for _, e := range emails {
+					if e.Primary && e.Verified {
+						return UserInfo{Email: e.Email, Name: name, Verified: true}, nil
+					}
+				}
+				for _, e := range emails { // any verified address
+					if e.Verified {
+						return UserInfo{Email: e.Email, Name: name, Verified: true}, nil
+					}
 				}
 			}
-			for _, e := range emails { // fall back to any verified address
-				if e.Verified {
-					return UserInfo{Email: e.Email, Name: name, Verified: true}, nil
-				}
+			// Fallback for GitHub Apps without email permission: the public profile email
+			// (GitHub only exposes a verified address here).
+			if profile.Email != "" {
+				return UserInfo{Email: profile.Email, Name: name, Verified: true}, nil
 			}
-			return UserInfo{}, errors.New("no verified email on the GitHub account")
+			return UserInfo{}, errors.New("no accessible verified email; grant the app email access or set a public email")
 		},
 	}
 	return &Registry{providers: map[string]*Provider{"google": google, "github": github}}
