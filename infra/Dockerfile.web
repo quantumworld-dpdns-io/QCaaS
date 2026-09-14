@@ -4,12 +4,12 @@
 #   docker build -f infra/Dockerfile.web --build-arg NEXT_PUBLIC_API_BASE_URL=... web
 # Build context is the web/ directory.
 
-FROM node:22-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ARG NEXT_PUBLIC_ACCOUNTS_URL=http://localhost:8080
@@ -20,7 +20,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 NEXT_TELEMETRY_DISABLED=1
 RUN apk upgrade --no-cache libssl3 libcrypto3 openssl 2>/dev/null || apk upgrade --no-cache \
