@@ -33,7 +33,7 @@ jobs:
       name: staging
       url: https://qcaas-api-staging.fly.dev
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy API
         run: flyctl deploy --config infra/fly.toml --app qcaas-api-staging --image "$IMAGE:${{ inputs.image_tag || 'latest' }}" --remote-only
@@ -58,7 +58,7 @@ jobs:
       name: production          # configure "required reviewers" on this environment in GitHub
       url: https://qcaas-api.fly.dev
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy API
         run: flyctl deploy --config infra/fly.toml --app qcaas-api --image "$IMAGE:${{ inputs.image_tag }}" --remote-only
